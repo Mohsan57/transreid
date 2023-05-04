@@ -1,0 +1,2 @@
+trans_reid_models/transformer_120.pth
+object_detection_models/*.pt
