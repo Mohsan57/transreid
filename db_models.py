@@ -10,3 +10,10 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True)
     password = Column(String, nullable=False)
+
+class reid_video(Base):
+    __tablename__ = "reid_videos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    video_name = Column(String,nullable=False)
+    video_path = Column(String, nullable=False)

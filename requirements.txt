@@ -37,3 +37,7 @@ ipython
 
 # live
 imutils
+#mail
+fastapi_mail
+python-dotenv
+mailtrap

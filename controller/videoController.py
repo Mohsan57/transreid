@@ -8,8 +8,10 @@ from object_detection.detect import detect
 from transreid.reid import REID
 from make_reid_video import Make_ReID_Video
 import torch
-import pathlib
 import glob
+import db_models
+import random
+# from .email_sender import email_sender_fun
 
 def make_dir(user_id):
     base_dir = f"users/{user_id}/"
@@ -100,8 +102,28 @@ def make_reid_video(base_dir,extention):
     is_video_make = video.make_video()
     return is_video_make
 
+import string
+def get_random_str():
+    random_source = string.ascii_letters + string.digits
+    # select 1 lowercase
+    str1 = random.choice(string.ascii_lowercase)
+    # select 1 uppercase
+    str1 += random.choice(string.ascii_uppercase)
+    # select 1 digit
+    str1 += random.choice(string.digits)
+    # select 1 special symbol
 
-def detect_using_video(db,device,current_user_email,video,accuracy,target_image):
+    # generate other characters
+    for i in range(40):
+        str1 += random.choice(random_source)
+
+    str_list = list(str1)
+    # shuffle all characters
+    random.SystemRandom().shuffle(str_list)
+    str1 = ''.join(str_list)
+    return str1
+
+def background_process(db,device,current_user_email,video,accuracy,target_image):
     target_image_type = target_image.content_type
     video_type = video.content_type
     
@@ -130,10 +152,37 @@ def detect_using_video(db,device,current_user_email,video,accuracy,target_image)
                 shutil.rmtree(f"{base_dir}/person")
             except shutil.Error as e:
                 print("Error in Removing files: "+e)
+            
+            # If Video is making is Done
+            #  send email
             if is_done:
-                return f"{base_dir}/output_video.mp4"
+                try:
+                    
+                    result_str = get_random_str()
+                    new_video = db_models.reid_video(video_name = result_str ,video_path = f"{base_dir}/output_video.{video_extension}")
+                    db.add(new_video)
+                    db.commit()
+                    db.refresh(new_video)
+                    # email_sender_fun(current_user_email,f"{base_dir}/output_video.mp4")
+                    print("Send")
+                except Exception as e:
+                    print("Error During Email Sent")
             else:
                 HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Server Error durin Making Video")
+        else:
+            raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Video size will not exceed 15MB")
+    else:
+        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Please Upload Only Video and Image")
+
+def detect_using_video(db,device,current_user_email,video,accuracy,target_image,background_task):
+    target_image_type = target_image.content_type
+    video_type = video.content_type
+    
+    if target_image_type.startswith("image") and video_type.startswith("video"):
+        if video.size <= 15000000:
+           background_task.add_task(background_process,db,device,current_user_email,video,accuracy,target_image)
+           return {"Message":"After completion, the video will be sent to your Email address",
+                    "email": f"{current_user_email}"}
         else:
             raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Video size will not exceed 15MB")
     else:

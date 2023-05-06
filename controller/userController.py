@@ -14,7 +14,6 @@ def add_new_user(db,name, email, password):
         
             
             password = hash.get_password_hash(password)
-            print(password)
             new_user = db_models.User(name = name, email = email, password = password)
         
             try:

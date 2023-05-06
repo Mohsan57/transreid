@@ -8,6 +8,12 @@ class Users(BaseModel):
     email: str
     password: str
 
+class reid_videos(BaseModel):
+    video_name: str
+    video_path: str
+
+class show_reid_videos(reid_videos):
+    pass
 
 class Show_User(BaseModel):
     id: int
