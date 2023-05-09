@@ -160,7 +160,9 @@ class Make_ReID_Video:
                 for people in detect_people:
                     for line in Lines_in_one_label:
                         file_name, zero, x, y, w, h = re.split(r"\s+",line)
-                        if people == file_name:
+                        str1 = file_name.split("/")
+                        
+                        if people == str1[-1]:
                             file.write(f"{x},{y},{w},{h}\n")
                             detect = 1
                     if detect == 1:
