@@ -29,5 +29,5 @@ def Create_user(request:schemas.Users, db: Session = Depends(get_db)):
 async def get_current_data(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends(OAuth.get_current_user)):
     user = userController.show_user_data(db,form_data)
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Not have any user")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Not Found")
     return user

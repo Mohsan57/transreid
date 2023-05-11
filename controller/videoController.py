@@ -1,6 +1,5 @@
 import os
 from datetime import datetime
-import db_models
 from fastapi import status, HTTPException
 import shutil
 from video_preprocessing import video_preprocessing
@@ -11,7 +10,10 @@ import torch
 import glob
 import db_models
 import random
-# from .email_sender import email_sender_fun
+import asyncio
+from .queue import queue, current_task
+
+
 
 def make_dir(user_id):
     base_dir = f"users/{user_id}/"
@@ -66,9 +68,9 @@ def upload_video(base_dir,video,target_image):
         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Please Upload Only Video and Image")
 
 
-def reduce_frame(base_dir,video,fps):
-    video_extension = video.filename.split(".")[-1]
-    video_path = f"{base_dir}/org_video.{video_extension}"
+def reduce_frame(base_dir,video_path,fps):
+    video_extension = video_path.split(".")[-1]
+    # video_path = f"{base_dir}/org_video.{video_extension}"
     output_pth = f"{base_dir}/video.{video_extension}"
     
     frame_reducer = video_preprocessing(input_video = video_path,output_path = output_pth, target_fps = fps)
@@ -83,7 +85,7 @@ def object_detection(accuracy,video_path,device,ouptut_folder):
         weight = 'object_detection_models/yolov7.pt'
     elif accuracy == 'medium':
         weight = 'object_detection_models/yolov7-w6.pt'
-    elif accuracy == 'heigh':
+    elif accuracy == 'high':
         weight = 'object_detection_models/yolov7-d6.pt'
     with torch.no_grad():
        detect(weights=weight, source=video_path,output_dir=ouptut_folder, device = device, name="person" )
@@ -123,22 +125,19 @@ def get_random_str():
     str1 = ''.join(str_list)
     return str1
 
-def background_process(db,device,current_user_email,video,accuracy,target_image):
-    target_image_type = target_image.content_type
-    video_type = video.content_type
-    
-    if target_image_type.startswith("image") and video_type.startswith("video"):
-        if video.size <= 15000000:
-            users = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
-            user_id = users.id
-            dir_name = make_dir(user_id=user_id)
-            video_extension = video.filename.split(".")[-1]
+def reid(device,base_dir,video_url,accuracy):
+   
+            # users = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
+            # user_id = users.id
+            # dir_name = make_dir(user_id=user_id)
+            video_extension = video_url.split(".")[-1]
 
-            base_dir = f'users/{user_id}/{dir_name}'
-            dir_info_file(base_dir = base_dir,accuracy=accuracy)
+            # base_dir = f'users/{user_id}/{dir_name}'
+            # dir_info_file(base_dir = base_dir,accuracy=accuracy)
             
-            uploaded_status =  upload_video(base_dir=base_dir, video= video, target_image=target_image)
-            reduce_frame(base_dir=base_dir, video=video, fps=8)
+            # uploaded_status =  upload_video(base_dir=base_dir, video= video, target_image=target_image)
+            
+            reduce_frame(base_dir=base_dir, video_url=video_url, fps=5)
             video_path_object_detect = f"{base_dir}/video.{video_extension}"
             output_path_object_detect = f"{base_dir}"
             object_detection(accuracy=accuracy, video_path=video_path_object_detect,ouptut_folder=output_path_object_detect,device=device)
@@ -146,7 +145,7 @@ def background_process(db,device,current_user_email,video,accuracy,target_image)
             TransReID(device=device,base_dir=base_dir,weight=reid_weight)
 
             is_done = make_reid_video(base_dir=base_dir,extention=video_extension)
-            video.close()
+            
             try:
                 shutil.rmtree(f"{base_dir}/identified_people")
                 shutil.rmtree(f"{base_dir}/person")
@@ -155,39 +154,22 @@ def background_process(db,device,current_user_email,video,accuracy,target_image)
             
             # If Video is making is Done
             #  send email
-            if is_done:
-                try:
+            # try:
+            result_str = get_random_str()
+            
+            return result_str
+                # response = send_email(receiver_email = current_user_email,user_name=user_name,video_link=video_link)
                     
-                    result_str = get_random_str()
-                    new_video = db_models.reid_video(video_name = result_str ,video_path = f"{base_dir}/output_video.{video_extension}")
-                    db.add(new_video)
-                    db.commit()
-                    db.refresh(new_video)
-                    # email_sender_fun(current_user_email,f"{base_dir}/output_video.mp4")
-                    print("Send")
-                except Exception as e:
-                    print("Error During Email Sent")
-            else:
-                HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Server Error durin Making Video")
-        else:
-            raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Video size will not exceed 15MB")
-    else:
-        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Please Upload Only Video and Image")
+            # except Exception as er:
+            #     error = db_models.errors(error_code = '0000' , error_message = f"'undefined' {er}",receiver_email = current_user_email)
+            #     db.add(error)
+            #     db.commit()
+            #     db.refresh(error)
+         
+           
 
-def detect_using_video(db,device,current_user_email,video,accuracy,target_image,background_task):
-    target_image_type = target_image.content_type
-    video_type = video.content_type
-    
-    if target_image_type.startswith("image") and video_type.startswith("video"):
-        if video.size <= 15000000:
-           background_task.add_task(background_process,db,device,current_user_email,video,accuracy,target_image)
-           return {"Message":"After completion, the video will be sent to your Email address",
-                    "email": f"{current_user_email}"}
-        else:
-            raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Video size will not exceed 15MB")
-    else:
-        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Please Upload Only Video and Image")
-    
+
+
 
 def history(db,current_user_email):
     users = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()

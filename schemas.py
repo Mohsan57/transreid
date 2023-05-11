@@ -12,6 +12,23 @@ class reid_videos(BaseModel):
     video_name: str
     video_path: str
 
+class errors(BaseModel):
+    error_code: str
+    error_message: str
+    receiver_email: str
+
+
+class show_errors(BaseModel):
+    id: int
+    error_code: str
+    error_message: str
+    receiver_email: str
+    time_created: str
+    
+    class Config():
+        orm_mode = True
+
+
 class show_reid_videos(reid_videos):
     pass
 

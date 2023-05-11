@@ -25,4 +25,3 @@ async def login(request: OAuth2PasswordRequestForm = Depends(), db: Session = De
         data={"sub": user.email}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
-

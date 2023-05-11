@@ -1,5 +1,6 @@
-from sqlalchemy import Boolean, Column, Integer, String, ForeignKey
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from database import Base
 
@@ -17,3 +18,12 @@ class reid_video(Base):
     id = Column(Integer, primary_key=True, index=True)
     video_name = Column(String,nullable=False)
     video_path = Column(String, nullable=False)
+
+class errors(Base):
+    __tablename__ = "errors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    error_code = Column(String,nullable=True)
+    error_message = Column(String, nullable=True)
+    receiver_email = Column(String,nullable=True)
+    time_created = Column(DateTime(timezone=True), server_default=func.now())

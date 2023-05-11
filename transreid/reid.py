@@ -19,6 +19,7 @@ class REID:
     self.weight = weight
     self.num_classes, self.camera_num, self.view_num = 702,8,1
     self.model = make_model(num_class=self.num_classes, camera_num=self.camera_num, view_num = self.view_num,device = self.device)
+
     self.model.load_param(self.weight)
     self.model = nn.DataParallel(self.model)
     self.model.to(self.device)
@@ -53,11 +54,10 @@ class REID:
             image_tensor = transform(open_image).unsqueeze(0)
             image_tensor = self.model(image_tensor,  cam_label=6, view_label=1)
             similarity = torch.nn.functional.cosine_similarity(target_tensor, image_tensor)
-            
             if(similarity[0]>=0.71):
-              #print( f" image index {image} cosine is: {str(similarity[0])}")
-              str1 = image.split("/")
-              writefile.write(f"{str1[-1]}\n")
+              print( f" image index {image} cosine is: {str(similarity[0])}")
+              str2, str3 = image.split("\\")
+              writefile.write(f"{str3}\n")
         
         return True
       except:
