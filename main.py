@@ -64,31 +64,53 @@ app.add_middleware(
 import asyncio
 
 
-queue = []  # initialize empty task queue
+import time
+# from queue import Queue
+# task_queue = Queue()
+
+# class Tasks:
+#     def __init__(self, task_data):
+#         self.task_data = task_data
+    
+#     def __call__(self):
+#         # Do some long-running task with self.task_data
+#         for i in range(0, 10):
+#             time.sleep(0.3)
+#             print(f"{i} task id {self.task_data}")
+
+# @app.post("/background-tasks")
+# async def create_task(background_tasks: BackgroundTasks, task_data: str):
+#     task = Tasks(task_data)
+#     task_queue.put(task)
+#     print(task_queue.queue)
+#     background_tasks.add_task(task)
+
+
+
+queues = []  # initialize empty task queue
 current_task = {"id": None, "queue": []}  # initialize current task to None
 
 @app.post("/task")
-async def process_task():
-    if len(queue) >= 5:
+async def process_task(background_task: BackgroundTasks):
+    if len(queues) >= 5:
         return {"message": "Task queue is full. Please try again later."}
     
-    task_id = len(queue) + 1  # assign unique ID to task
-    queue.append(task_id)  # add task to queue
+    task_id = len(queues) + 1  # assign unique ID to task
+    queues.append(task_id)  # add task to queue
     
     global current_task
     if current_task["id"] is None:  # start the task immediately if there is no current task
         current_task["id"] = task_id
-        current_task["task"] = asyncio.create_task(process_task_in_background(task_id))
+        current_task["task"] = background_task.add_task(process_task_in_background,task_id)
     else:
         # add the task ID to the current task's queue
         current_task["queue"].append(task_id)
-    print(queue)
+    print(queues)
     print(current_task)
     return {"message": f"Your task is being processed in the background. Your task is in queue number {task_id}."}
 
-import time
-async def process_task_in_background(task_id):
-    await asyncio.sleep(5)
+def process_task_in_background(task_id):
+    # await asyncio.sleep(5)
     for i in range(0, 10):
         time.sleep(0.3)
         print(f"{i} task id {task_id}")
@@ -96,20 +118,20 @@ async def process_task_in_background(task_id):
     global current_task
     if current_task["id"] == task_id:
         current_task["id"] = None  # mark the current task as completed
-        queue.remove(task_id)
+        queues.remove(task_id)
     
         # start the next task if there is one in the queue
         if len(current_task["queue"]) > 0:
             next_task_id = current_task["queue"].pop(0)
             
             current_task["id"] = next_task_id
-            current_task["task"] = asyncio.create_task(process_task_in_background(next_task_id))
+            current_task["task"] =  (process_task_in_background(next_task_id))
             
 
-@app.on_event("startup")
-async def startup():
-    global current_task
-    current_task = {"id": None, "queue": []}
+# @app.on_event("startup")
+# async def startup():
+#     global current_task
+#     current_task = {"id": None, "queue": []}
 
     
 

@@ -11,16 +11,21 @@ import asyncio
 import smtplib
 from database import engine, Base
 from email_sender import send_email
-from controller.queue import queue, current_task, task_completed_event
+from controller.queue import queue, current_task, task_completed_event, global_video_urls
 router = APIRouter(
     prefix="/video-reid",
     tags=["video-reid"]
 )
+import asyncio
+
+queue = []  # initialize empty task queue
+
+current_task = {"id": None, "queue": []}  # initialize current task to None
 
 
 
 @router.post("/upload", status_code=status.HTTP_200_OK)
-async def upload_video_and_target(
+async def upload_video_and_target( background_tasks: BackgroundTasks,
     video: UploadFile = File(title="Upload Video",description="Select Video File"),
     target_image: UploadFile = File(title="Target Image",description="Select Target Image") ,
     accuracy : str= Query("low", enum = ["low", "medium","high"],description="Select Accuracy"),
@@ -49,20 +54,21 @@ async def upload_video_and_target(
             video_extension = video.filename.split(".")[-1]
             video_url = f"{base_dir}/org_video.{video_extension}"
             task_id = len(queue) + 1  # assign unique ID to task
+            # async with asyncio.wait():  # use lock to modify shared variables safely
             queue.append(task_id)  # add task to queue
-                    
-            objects = {"device":device,"base_dir": base_dir,
-                "video_url":video_url,"accuracy":accuracy,
-                "task_id":task_id,"user_email":current_user_email,"username":users.name}
-            
-            if current_task["id"] is None:  # start the task immediately if there is no current task
-                current_task["id"] = task_id
-                current_task["task"] = asyncio.create_task(backgroud_process(device,base_dir,video_url,accuracy,current_user_email,users.name,task_id))
                         
+            objects = {"device":device,"base_dir": base_dir,
+                    "video_url":video_url,"accuracy":accuracy,
+                    "task_id":task_id,"user_email":current_user_email,"username":users.name}
+                
+            if current_task["id"] is None:  # start the task immediately if there is no current task
+                    current_task["id"] = task_id
+                    current_task["task"] =  background_tasks.add_task(backgroud_process,objects["device"],objects["base_dir"],objects["video_url"],objects["accuracy"],objects["user_email"],objects["username"],objects["task_id"])
+                            
             else:
-                print("RUN")
-                # add the task ID to the current task's queue
-                current_task["queue"].append(objects)
+                    print("RUN")
+                    # add the task ID to the current task's queue
+                    current_task["queue"].append(objects)
             video.close()
             print(queue)
             print(current_task)
@@ -81,37 +87,38 @@ async def upload_video_and_target(
         # raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Error in videoController.detect_using_video")
 
 
-async def backgroud_process(device,base_dir,video_url,accuracy,user_email,username,task_id):
-    await asyncio.sleep(5)
-    global_video_url = await videoController.reid(device=device,base_dir=base_dir,video_url=video_url,accuracy=accuracy)
+def backgroud_process(device,base_dir,video_url,accuracy,user_email,username,task_id):
+    
+    
+    video_url = videoController.reid(device=device, base_dir=base_dir, video_url=video_url, accuracy=accuracy)
+    task_completed_send_mail(result=video_url,base_dir=base_dir,receiver_email=user_email,username=username)
     global current_task
     if current_task["id"] == task_id:
-        current_task["id"] = None  # mark the current task as completed
-        queue.remove(task_id)
+            current_task["id"] = None  # mark the current task as completed
+            queue.remove(task_id)
             
-        # start the next task if there is one in the queue
-        if len(current_task["queue"]) > 0:
-            next_task_objects = current_task["queue"].pop(0)
-                    
-            current_task["id"] = next_task_objects["task_id"]
-            current_task["task"] = asyncio.create_task(backgroud_process(device= next_task_objects["device"],base_dir= next_task_objects["base_dir"],
-                                                                         video_url= next_task_objects["video_url"],accuracy= next_task_objects["accuracy"],
-                                                                          user_email=next_task_objects["user_email"],username=next_task_objects["username"]
-                                                                          ,task_id=next_task_objects["task_id"]))
-        
-        task_completed_callback(result= global_video_url,base_dir= base_dir,receiver_email=user_email,username= username)
-        task_completed_event.set()  # set the event to signal task completion
+            # start the next task if there is one in the queue
+            if len(current_task["queue"]) > 0:
+                next_task_objects = current_task["queue"].pop(0)
+                        
+                current_task["id"] = next_task_objects["task_id"]
+                current_task["task"] = backgroud_process(device= next_task_objects["device"],base_dir= next_task_objects["base_dir"],
+                                                                            video_url= next_task_objects["video_url"],accuracy= next_task_objects["accuracy"],
+                                                                            user_email=next_task_objects["user_email"],username=next_task_objects["username"]
+                                                                            ,task_id=next_task_objects["task_id"])
+            
+            # task_completed_callback(result= global_video_url,base_dir= base_dir,receiver_email=user_email,username= username)
+            # task_completed_event.set()  # set the event to signal task completion
 
 
-def task_completed_callback(result,base_dir,receiver_email,username):
-    # await task_completed_event.wait()
+def task_completed_send_mail(result,base_dir,receiver_email,username):
     new_video = db_models.reid_video(video_name = result ,video_path = f"{base_dir}/output_video.mp4")
     session = Session(bind=engine)
     session.add(new_video)
     session.commit()
     session.refresh(new_video)
     try:
-        respose = send_email(receiver_email=receiver_email,user_name=username,video_link=new_video)
+        respose = send_email(receiver_email=receiver_email,user_name=username,video_link=result)
     except smtplib.SMTPServerDisconnected as er:
         error = db_models.errors(error_code = er.errno , error_message = f" 'SMTPServerDisconnected' {er}",receiver_email = receiver_email)
         session.add(error)
@@ -135,12 +142,12 @@ def task_completed_callback(result,base_dir,receiver_email,username):
         session.refresh(error)
 
     session.close()
-    print("Task completed and email sent")
+    print(f"Task completed and email sent to {receiver_email}")
 
-@router.on_event("startup")
-async def startup():
-    global current_task
-    current_task = {"id": None, "queue": []}
+# @router.on_event("startup")
+# async def startup():
+#     global current_task
+#     current_task = {"id": None, "queue": []}
 
 
 @router.get("/download_video/{file_id}",status_code=status.HTTP_200_OK)

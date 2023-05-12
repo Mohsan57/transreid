@@ -70,11 +70,12 @@ def upload_video(base_dir,video,target_image):
 
 def reduce_frame(base_dir,video_path,fps):
     video_extension = video_path.split(".")[-1]
+    
     # video_path = f"{base_dir}/org_video.{video_extension}"
     output_pth = f"{base_dir}/video.{video_extension}"
-    
+    print("RUN 02")
     frame_reducer = video_preprocessing(input_video = video_path,output_path = output_pth, target_fps = fps)
-    
+    print("Run 04")
     frame_reducer.reduce_frames()
 
 
@@ -126,18 +127,12 @@ def get_random_str():
     return str1
 
 def reid(device,base_dir,video_url,accuracy):
-   
-            # users = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
-            # user_id = users.id
-            # dir_name = make_dir(user_id=user_id)
+            
             video_extension = video_url.split(".")[-1]
 
-            # base_dir = f'users/{user_id}/{dir_name}'
-            # dir_info_file(base_dir = base_dir,accuracy=accuracy)
-            
-            # uploaded_status =  upload_video(base_dir=base_dir, video= video, target_image=target_image)
-            
-            reduce_frame(base_dir=base_dir, video_url=video_url, fps=5)
+            print("RUN 01")
+            reduce_frame(base_dir=base_dir, video_path=video_url, fps=5)
+            print("RUN 05")
             video_path_object_detect = f"{base_dir}/video.{video_extension}"
             output_path_object_detect = f"{base_dir}"
             object_detection(accuracy=accuracy, video_path=video_path_object_detect,ouptut_folder=output_path_object_detect,device=device)
@@ -151,24 +146,10 @@ def reid(device,base_dir,video_url,accuracy):
                 shutil.rmtree(f"{base_dir}/person")
             except shutil.Error as e:
                 print("Error in Removing files: "+e)
-            
-            # If Video is making is Done
-            #  send email
-            # try:
+           
             result_str = get_random_str()
             
             return result_str
-                # response = send_email(receiver_email = current_user_email,user_name=user_name,video_link=video_link)
-                    
-            # except Exception as er:
-            #     error = db_models.errors(error_code = '0000' , error_message = f"'undefined' {er}",receiver_email = current_user_email)
-            #     db.add(error)
-            #     db.commit()
-            #     db.refresh(error)
-         
-           
-
-
 
 
 def history(db,current_user_email):
