@@ -11,7 +11,6 @@ import glob
 import db_models
 import random
 import asyncio
-from .queue import queue, current_task
 
 
 

@@ -11,7 +11,6 @@ import asyncio
 import smtplib
 from database import engine, Base
 from email_sender import send_email
-from controller.queue import queue, current_task, task_completed_event, global_video_urls
 router = APIRouter(
     prefix="/video-reid",
     tags=["video-reid"]

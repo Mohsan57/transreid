@@ -90,7 +90,7 @@ import time
 queues = []  # initialize empty task queue
 current_task = {"id": None, "queue": []}  # initialize current task to None
 
-@app.post("/task")
+@app.post("/task",tags=["testing"])
 async def process_task(background_task: BackgroundTasks):
     if len(queues) >= 5:
         return {"message": "Task queue is full. Please try again later."}
