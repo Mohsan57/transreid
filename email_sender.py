@@ -3,9 +3,10 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import db_models
 import tracemalloc
+import setting
 tracemalloc.start() 
-sender_email = "campus.surveillance.system@gmail.com"
-password = "bfomqqctqfobtgta"
+sender_email = setting.EMAIL
+password = setting.PASSWORD
 def send_email(receiver_email, user_name, video_link):
   
     message = MIMEMultipart()
@@ -29,7 +30,7 @@ def send_email(receiver_email, user_name, video_link):
         <p class="u-align-left u-text u-text-2">We are pleased to inform you that the video you submitted for person identification on our website has been processed and is now ready for download. <br>
           <br>Please click on the following link to download your video:<br>
         </p>
-        <a href="http://127.0.0.1:8000/video-reid/download_video/{videolink}" class="">Download Video</a>
+        <a href="{BASE_URL}/video-reid/download_video/{videolink}" class="">Download Video</a>
         <p class="u-align-left u-text u-text-3"> Thank you for using our website for your person identification needs. <br>
           <br>Best regards, <br>Campus Sureivllance system
         </p>
@@ -38,12 +39,12 @@ def send_email(receiver_email, user_name, video_link):
     
     
     <footer class="u-align-center u-clearfix u-container-align-center u-footer u-grey-80 u-footer" id="sec-56dc"><div class="u-clearfix u-sheet u-sheet-1">
-        <a href="" class="">Campus Surveillance System</a>
+        <a href="{BASE_URL}" class="">Campus Surveillance System</a>
       </div>
     </footer>
   
 </body></html>
-    '''.format(username = user_name, videolink = video_link)
+    '''.format(username = user_name, videolink = video_link, BASE_URL = setting.BASE_URL)
     # html = templates.TemplateResponse("email_template.html", data)
     message.attach(MIMEText(html, "html"))
     text = message.as_string()

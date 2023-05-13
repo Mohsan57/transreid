@@ -21,7 +21,7 @@ queue = []  # initialize empty task queue
 
 current_task = {"id": None, "queue": []}  # initialize current task to None
 
-
+import setting
 
 @router.post("/upload", status_code=status.HTTP_200_OK)
 async def upload_video_and_target( background_tasks: BackgroundTasks,
@@ -34,10 +34,10 @@ async def upload_video_and_target( background_tasks: BackgroundTasks,
     video_type = video.content_type
     
     if target_image_type.startswith("image") and video_type.startswith("video"):
-        if video.size <= 15000000:
+        if video.size <= setting.INPUT_VIDEO_SIZE_IN_BYTES:
             global current_task
             global queue
-            if len(queue) >= 3:
+            if len(queue) >= setting.QUEUE_LENGTH:
                 return {"message": "Task queue is full. Please try again later."}
             
             current_user_email = form_data.email
@@ -51,6 +51,7 @@ async def upload_video_and_target( background_tasks: BackgroundTasks,
             
             videoController.upload_video(base_dir=base_dir, video= video, target_image=target_image)
             video_extension = video.filename.split(".")[-1]
+            image_extension = target_image.filename.split(".")[-1]
             video_url = f"{base_dir}/org_video.{video_extension}"
             task_id = len(queue) + 1  # assign unique ID to task
             # async with asyncio.wait():  # use lock to modify shared variables safely
@@ -58,23 +59,20 @@ async def upload_video_and_target( background_tasks: BackgroundTasks,
                         
             objects = {"device":device,"base_dir": base_dir,
                     "video_url":video_url,"accuracy":accuracy,
-                    "task_id":task_id,"user_email":current_user_email,"username":users.name}
+                    "task_id":task_id,"user_email":current_user_email,"username":users.name, "image_extension":image_extension}
                 
             if current_task["id"] is None:  # start the task immediately if there is no current task
                     current_task["id"] = task_id
-                    current_task["task"] =  background_tasks.add_task(backgroud_process,objects["device"],objects["base_dir"],objects["video_url"],objects["accuracy"],objects["user_email"],objects["username"],objects["task_id"])
+                    current_task["task"] =  background_tasks.add_task(backgroud_process,objects["device"],objects["base_dir"],objects["video_url"],objects["accuracy"],objects["user_email"],objects["username"],objects["task_id"],objects["image_extension"])
                             
             else:
-                    print("RUN")
                     # add the task ID to the current task's queue
                     current_task["queue"].append(objects)
             video.close()
-            print(queue)
-            print(current_task)
             return {"Message":f"Your task is being processed. Your task is in queue number {task_id}. After completion, the video will be sent to your Email address",
                             "email": f"{current_user_email}"}
         else:
-            raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Video size will not exceed 15MB")
+            raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail=f"Video size will not exceed {setting.INPUT_VIDEO_SIZE_IN_BYTES/1000000}MB")
     else:
         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Please Upload Only Video and Image")
     
@@ -86,10 +84,10 @@ async def upload_video_and_target( background_tasks: BackgroundTasks,
         # raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Error in videoController.detect_using_video")
 
 
-def backgroud_process(device,base_dir,video_url,accuracy,user_email,username,task_id):
+def backgroud_process(device,base_dir,video_url,accuracy,user_email,username,task_id,image_extension):
     
     
-    video_url = videoController.reid(device=device, base_dir=base_dir, video_url=video_url, accuracy=accuracy)
+    video_url = videoController.reid(device=device, base_dir=base_dir, video_url=video_url, accuracy=accuracy,image_extension=image_extension)
     task_completed_send_mail(result=video_url,base_dir=base_dir,receiver_email=user_email,username=username)
     global current_task
     if current_task["id"] == task_id:
@@ -104,7 +102,7 @@ def backgroud_process(device,base_dir,video_url,accuracy,user_email,username,tas
                 current_task["task"] = backgroud_process(device= next_task_objects["device"],base_dir= next_task_objects["base_dir"],
                                                                             video_url= next_task_objects["video_url"],accuracy= next_task_objects["accuracy"],
                                                                             user_email=next_task_objects["user_email"],username=next_task_objects["username"]
-                                                                            ,task_id=next_task_objects["task_id"])
+                                                                            ,task_id=next_task_objects["task_id"], image_extension=next_task_objects["image_extension"])
             
             # task_completed_callback(result= global_video_url,base_dir= base_dir,receiver_email=user_email,username= username)
             # task_completed_event.set()  # set the event to signal task completion
@@ -118,6 +116,10 @@ def task_completed_send_mail(result,base_dir,receiver_email,username):
     session.refresh(new_video)
     try:
         respose = send_email(receiver_email=receiver_email,user_name=username,video_link=result)
+        success = db_models.errors(error_code = '200', error_message =f"Successfuly send video link: {result}",receiver_email = receiver_email)
+        session.add(success)
+        session.commit()
+        session.refresh(success)
     except smtplib.SMTPServerDisconnected as er:
         error = db_models.errors(error_code = er.errno , error_message = f" 'SMTPServerDisconnected' {er}",receiver_email = receiver_email)
         session.add(error)

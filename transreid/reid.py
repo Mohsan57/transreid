@@ -5,7 +5,7 @@ import torch
 from PIL import Image
 import torch.nn as nn
 import glob
-
+import setting
 transform = T.Compose([
     T.Resize((256, 128)),
     T.ToTensor(),
@@ -13,13 +13,15 @@ transform = T.Compose([
 ])
 
 class REID:
-  def __init__(self, device, base_dir, weight):
+  def __init__(self, device, base_dir, weight,image_extension):
+    self.image_extension = image_extension
     self.device = torch.device(device)
     self.base_dir = base_dir
     self.weight = weight
     self.num_classes, self.camera_num, self.view_num = 702,8,1
+    
     self.model = make_model(num_class=self.num_classes, camera_num=self.camera_num, view_num = self.view_num,device = self.device)
-
+    
     self.model.load_param(self.weight)
     self.model = nn.DataParallel(self.model)
     self.model.to(self.device)
@@ -33,16 +35,19 @@ class REID:
           return float('inf')
   def idetification(self):
       try:
+        
         images = []
         images = glob.glob(f"{self.base_dir}/person/crops/person/*.jpg")
-
+        
         images = sorted(images, key=self.extract_number)
-        target = f"{self.base_dir}/target_image.jpg"
-
+        
+        target = f"{self.base_dir}/target_image.{self.image_extension }"
+        
         target_image = Image.open(target)
+        
         target_image_to_tensor = transform(target_image).unsqueeze(0)
         target_tensor = self.model(target_image_to_tensor, cam_label=6, view_label=1)
-
+        
         try:
           os.mkdir(f"{self.base_dir}/identified_people/")
         except:
@@ -54,10 +59,11 @@ class REID:
             image_tensor = transform(open_image).unsqueeze(0)
             image_tensor = self.model(image_tensor,  cam_label=6, view_label=1)
             similarity = torch.nn.functional.cosine_similarity(target_tensor, image_tensor)
-            if(similarity[0]>=0.71):
+            if(similarity[0]>=setting.TRANSREID_ACCURACY_MATCH):
               print( f" image index {image} cosine is: {str(similarity[0])}")
-              str2, str3 = image.split("\\")
-              writefile.write(f"{str3}\n")
+            
+              str2 = image.split("/")
+              writefile.write(f"{str2[-1]}\n")
         
         return True
       except:

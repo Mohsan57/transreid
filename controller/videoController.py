@@ -12,7 +12,7 @@ import db_models
 import random
 import asyncio
 
-
+import setting
 
 def make_dir(user_id):
     base_dir = f"users/{user_id}/"
@@ -45,11 +45,6 @@ def dir_info_file(base_dir,accuracy):
     directory_info.close()
 
 def upload_video(base_dir,video,target_image):
-    target_image_type = target_image.content_type
-    video_type = video.content_type
-
-    if target_image_type.startswith("image") and video_type.startswith("video"):
-        if video.size <= 60000000:
             video_extension = video.filename.split(".")[-1]
             image_extension = target_image.filename.split(".")[-1]
             try:
@@ -61,10 +56,7 @@ def upload_video(base_dir,video,target_image):
             
             except shutil.ExecError as err:
                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"File Uploading Error\n{err}")
-        else:
-            raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Video size will not exceed 60MB")
-    else:
-        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Please Upload Only Video and Image")
+        
 
 
 def reduce_frame(base_dir,video_path,fps):
@@ -72,9 +64,8 @@ def reduce_frame(base_dir,video_path,fps):
     
     # video_path = f"{base_dir}/org_video.{video_extension}"
     output_pth = f"{base_dir}/video.{video_extension}"
-    print("RUN 02")
     frame_reducer = video_preprocessing(input_video = video_path,output_path = output_pth, target_fps = fps)
-    print("Run 04")
+    
     frame_reducer.reduce_frames()
 
 
@@ -91,13 +82,16 @@ def object_detection(accuracy,video_path,device,ouptut_folder):
        detect(weights=weight, source=video_path,output_dir=ouptut_folder, device = device, name="person" )
         
 
-def TransReID(device, base_dir, weight):
-    reid = REID(device, base_dir, weight)
-    check = reid.idetification()
-    if check:
-        return True
-    else:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error in Re-Identification Algorithm")
+def TransReID(device, base_dir, weight,image_extension):
+    try:
+        reid = REID(device, base_dir, weight,image_extension)
+        check = reid.idetification()
+        if check:
+            return True
+        else:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error in Re-Identification Algorithm method[videoController.Transreid]")
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error in Re-Identification Algorithm method[videoController.Transreid]")
 
 def make_reid_video(base_dir,extention):
     video = Make_ReID_Video(base_dir = base_dir, video_extention=extention)
@@ -125,18 +119,16 @@ def get_random_str():
     str1 = ''.join(str_list)
     return str1
 
-def reid(device,base_dir,video_url,accuracy):
+def reid(device,base_dir,video_url,accuracy,image_extension):
             
             video_extension = video_url.split(".")[-1]
 
-            print("RUN 01")
-            reduce_frame(base_dir=base_dir, video_path=video_url, fps=5)
-            print("RUN 05")
+            reduce_frame(base_dir=base_dir, video_path=video_url, fps=setting.VIDEO_CONVERT_FPS)
             video_path_object_detect = f"{base_dir}/video.{video_extension}"
             output_path_object_detect = f"{base_dir}"
             object_detection(accuracy=accuracy, video_path=video_path_object_detect,ouptut_folder=output_path_object_detect,device=device)
-            reid_weight = 'trans_reid_models/transformer_120.pth'
-            TransReID(device=device,base_dir=base_dir,weight=reid_weight)
+            reid_weight = f'trans_reid_models/{setting.TRANSREID_MODEL_NAME}'
+            TransReID(device=device,base_dir=base_dir,weight=reid_weight,image_extension=image_extension)
 
             is_done = make_reid_video(base_dir=base_dir,extention=video_extension)
             

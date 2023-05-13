@@ -4,6 +4,7 @@ from routers import user,authentication, video_reid, live_camera
 import db_models, database
 from database import engine
 from fastapi.middleware.cors import CORSMiddleware
+
 # for Ngrok
 # from fastapi.logger import logger
 # from pydantic import BaseSettings
