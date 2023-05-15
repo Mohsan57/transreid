@@ -1,10 +1,10 @@
-from fastapi import FastAPI,HTTPException, BackgroundTasks
+from fastapi import FastAPI,HTTPException, BackgroundTasks, Request
 from typing import List
 from routers import user,authentication, video_reid, live_camera
 import db_models, database
 from database import engine
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.templating import Jinja2Templates
 # for Ngrok
 # from fastapi.logger import logger
 # from pydantic import BaseSettings
@@ -85,7 +85,6 @@ import time
 #     task_queue.put(task)
 #     print(task_queue.queue)
 #     background_tasks.add_task(task)
-
 
 
 queues = []  # initialize empty task queue

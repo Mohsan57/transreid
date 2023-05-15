@@ -25,9 +25,10 @@ def Create_user(request:schemas.Users, db: Session = Depends(get_db)):
     
     
 
-@router.get("/me", status_code=status.HTTP_200_OK)
+@router.get("/me", status_code=status.HTTP_200_OK, response_model=schemas.Show_User)
 async def get_current_data(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends(OAuth.get_current_user)):
-    user = userController.show_user_data(db,form_data)
+    current_user_email = form_data.email
+    user = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Not Found")
     return user

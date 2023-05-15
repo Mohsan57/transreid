@@ -1,6 +1,10 @@
-trans_reid_models/
-object_detection_models/
+trans_reid_models/*
+object_detection_models/*
 env/
 users/
 test/
 algorithms/
+Dockerfile
+app.yaml
+.Dockerfile
+

@@ -1,21 +1,29 @@
-from fastapi import APIRouter, Depends, status, Response, HTTPException, BackgroundTasks
+import base64
+import os
+
+from fastapi import APIRouter, Depends, status, Response, HTTPException, Header,BackgroundTasks, Request
 from fastapi.security import OAuth2PasswordRequestForm
 import OAuth
 from database import get_db
 from sqlalchemy.orm import Session
 from fastapi import File, UploadFile, Query
 from controller import videoController
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 import db_models
-import asyncio
 import smtplib
-from database import engine, Base
+from database import engine
 from email_sender import send_email
+from fastapi_frame_stream import FrameStreamer
 router = APIRouter(
     prefix="/video-reid",
     tags=["video-reid"]
 )
-import asyncio
+
+from fastapi.templating import Jinja2Templates
+
+
+templates = Jinja2Templates(directory="templates")
+
 
 queue = []  # initialize empty task queue
 
@@ -59,11 +67,13 @@ async def upload_video_and_target( background_tasks: BackgroundTasks,
                         
             objects = {"device":device,"base_dir": base_dir,
                     "video_url":video_url,"accuracy":accuracy,
-                    "task_id":task_id,"user_email":current_user_email,"username":users.name, "image_extension":image_extension}
+                    "task_id":task_id,"user_email":current_user_email,"username":users.name, 
+                    "user_id":user_id,"image_extension":image_extension}
                 
             if current_task["id"] is None:  # start the task immediately if there is no current task
                     current_task["id"] = task_id
-                    current_task["task"] =  background_tasks.add_task(backgroud_process,objects["device"],objects["base_dir"],objects["video_url"],objects["accuracy"],objects["user_email"],objects["username"],objects["task_id"],objects["image_extension"])
+                    current_task["task"] =  background_tasks.add_task(backgroud_process,objects["device"],objects["base_dir"],objects["video_url"],objects["accuracy"],objects["user_email"],
+                                                                      objects["username"],objects["user_id"],objects["task_id"],objects["image_extension"])
                             
             else:
                     # add the task ID to the current task's queue
@@ -76,19 +86,12 @@ async def upload_video_and_target( background_tasks: BackgroundTasks,
     else:
         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Please Upload Only Video and Image")
     
-    
-    # try:
-        # output = videoController.detect_using_video(db=db,device=device,current_user_email=current_user_email,video=video,target_image=target_image,accuracy=accuracy)
-        # return output
-    # except Exception:
-        # raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail="Error in videoController.detect_using_video")
 
-
-def backgroud_process(device,base_dir,video_url,accuracy,user_email,username,task_id,image_extension):
+def backgroud_process(device,base_dir,video_url,accuracy,user_email,username,user_id,task_id,image_extension):
     
     
     video_url = videoController.reid(device=device, base_dir=base_dir, video_url=video_url, accuracy=accuracy,image_extension=image_extension)
-    task_completed_send_mail(result=video_url,base_dir=base_dir,receiver_email=user_email,username=username)
+    task_completed_send_mail(result=video_url,base_dir=base_dir,image_extension= image_extension,receiver_email=user_email,username=username,user_id=user_id)
     global current_task
     if current_task["id"] == task_id:
             current_task["id"] = None  # mark the current task as completed
@@ -101,42 +104,39 @@ def backgroud_process(device,base_dir,video_url,accuracy,user_email,username,tas
                 current_task["id"] = next_task_objects["task_id"]
                 current_task["task"] = backgroud_process(device= next_task_objects["device"],base_dir= next_task_objects["base_dir"],
                                                                             video_url= next_task_objects["video_url"],accuracy= next_task_objects["accuracy"],
-                                                                            user_email=next_task_objects["user_email"],username=next_task_objects["username"]
+                                                                            user_email=next_task_objects["user_email"],username=next_task_objects["username"],user_id=next_task_objects["user_id"]
                                                                             ,task_id=next_task_objects["task_id"], image_extension=next_task_objects["image_extension"])
             
-            # task_completed_callback(result= global_video_url,base_dir= base_dir,receiver_email=user_email,username= username)
-            # task_completed_event.set()  # set the event to signal task completion
-
-
-def task_completed_send_mail(result,base_dir,receiver_email,username):
-    new_video = db_models.reid_video(video_name = result ,video_path = f"{base_dir}/output_video.mp4")
+def task_completed_send_mail(result,base_dir,image_extension,receiver_email,username,user_id):
+    image_name = videoController.get_random_str()
+    new_video = db_models.Reid_Video(user_id = user_id,video_name = result ,video_path = f"{base_dir}/output_video.mp4",img_name = image_name,img_path = f"{base_dir}/target_image.{image_extension}")
     session = Session(bind=engine)
     session.add(new_video)
     session.commit()
     session.refresh(new_video)
     try:
         respose = send_email(receiver_email=receiver_email,user_name=username,video_link=result)
-        success = db_models.errors(error_code = '200', error_message =f"Successfuly send video link: {result}",receiver_email = receiver_email)
+        success = db_models.Error(error_code = '200', error_message =f"Successfuly send video link: {result}",receiver_email = receiver_email)
         session.add(success)
         session.commit()
         session.refresh(success)
     except smtplib.SMTPServerDisconnected as er:
-        error = db_models.errors(error_code = er.errno , error_message = f" 'SMTPServerDisconnected' {er}",receiver_email = receiver_email)
+        error = db_models.Error(error_code = er.errno , error_message = f" 'SMTPServerDisconnected' {er}",receiver_email = receiver_email)
         session.add(error)
         session.commit()
         session.refresh(error)
     except smtplib.SMTPAuthenticationError as er:
-        error = db_models.errors(error_code = er.smtp_code , error_message =f" 'SMTPAuthenticationError' {er}",receiver_email = receiver_email)
+        error = db_models.Error(error_code = er.smtp_code , error_message =f" 'SMTPAuthenticationError' {er}",receiver_email = receiver_email)
         session.add(error)
         session.commit()
         session.refresh(error)
     except smtplib.SMTPSenderRefused as er:
-        error = db_models.errors(error_code = er.smtp_code , error_message = f"'SMTPSenderRefused' {er}",receiver_email = receiver_email)
+        error = db_models.Error(error_code = er.smtp_code , error_message = f"'SMTPSenderRefused' {er}",receiver_email = receiver_email)
         session.add(error)
         session.commit()
         session.refresh(error)
     except smtplib.SMTPResponseException as er:
-        error = db_models.errors(error_code = er.smtp_code , error_message = f"'SMTPResponseException' {er}",receiver_email = receiver_email)
+        error = db_models.Error(error_code = er.smtp_code , error_message = f"'SMTPResponseException' {er}",receiver_email = receiver_email)
         
         session.add(error)
         session.commit()
@@ -145,25 +145,41 @@ def task_completed_send_mail(result,base_dir,receiver_email,username):
     session.close()
     print(f"Task completed and email sent to {receiver_email}")
 
-# @router.on_event("startup")
-# async def startup():
-#     global current_task
-#     current_task = {"id": None, "queue": []}
-
 
 @router.get("/download_video/{file_id}",status_code=status.HTTP_200_OK)
 async def download_video(file_id: str, db: Session = Depends(get_db)):
     
-    video = db.query(db_models.reid_video).filter(db_models.reid_video.video_name == file_id).first()
-    print(video)
+    video = db.query(db_models.Reid_Video).filter(db_models.Reid_Video.video_name == file_id).first()
     if not video:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Invalid Video ID")
     video_path = video.video_path
     return FileResponse(path=video_path, media_type='application/octet-stream', filename='video.mp4')
 
 
+@router.get('/target-image/{link}')
+async def get_target_image (request: Request,link: str, db:Session = Depends(get_db)):
+    image = db.query(db_models.Reid_Video).filter(db_models.Reid_Video.img_name == link).first()
+    if image:
+        file_path = image.img_path
+        with open(file_path, "rb") as imageFile:
+            str = base64.b64encode(imageFile.read()).decode("utf-8")
+            
+        return templates.TemplateResponse("image_view.html", {"request": request,"img": str})
+       
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=("Invalid link"))
+
 
 @router.get("/history",status_code=status.HTTP_200_OK)
 async def video_history( db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends(OAuth.get_current_user)):
     current_user_email = form_data.email
-    return videoController.history(db=db, current_user_email=current_user_email)
+    info = db.query(db_models.Reid_Video).join(db_models.User, db_models.User.id == db_models.Reid_Video.user_id).filter(db_models.User.email == current_user_email).all()
+    videos_info = []
+    if info:
+        for row in info:
+            temp_dict = {"video":row.video_name,"image":row.img_name}
+            videos_info.append(temp_dict)
+    
+            
+        
+    return {"History":videos_info}
+        

@@ -11,6 +11,8 @@ class Users(BaseModel):
 class reid_videos(BaseModel):
     video_name: str
     video_path: str
+    
+    
 
 class errors(BaseModel):
     error_code: str

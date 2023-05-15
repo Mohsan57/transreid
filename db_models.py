@@ -1,8 +1,10 @@
 from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-
 from database import Base
+from typing import List
+from sqlalchemy.orm import Mapped
+
 
 class User(Base):
     __tablename__ = "users"
@@ -11,15 +13,22 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True)
     password = Column(String, nullable=False)
+    
+    reid_video: Mapped[List["Reid_Video"]] = relationship(back_populates = "user")
+    
 
-class reid_video(Base):
+class Reid_Video(Base):
     __tablename__ = "reid_videos"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
     video_name = Column(String,nullable=False)
     video_path = Column(String, nullable=False)
-
-class errors(Base):
+    img_name = Column(String,nullable=False)
+    img_path = Column(String, nullable=False)   
+    user = relationship("User", back_populates="reid_video")
+ 
+class Error(Base):
     __tablename__ = "errors"
 
     id = Column(Integer, primary_key=True, index=True)

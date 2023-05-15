@@ -7,10 +7,7 @@ from object_detection.detect import detect
 from transreid.reid import REID
 from make_reid_video import Make_ReID_Video
 import torch
-import glob
-import db_models
 import random
-import asyncio
 
 import setting
 
@@ -142,40 +139,6 @@ def reid(device,base_dir,video_url,accuracy,image_extension):
             
             return result_str
 
-
-def history(db,current_user_email):
-    users = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
-    user_id = users.id
-    user_dirs = f"users/{user_id}/"
-    history = []
-    for directory in os.listdir(user_dirs):
-        created_date = ""
-        accuracy = ""
-        files = []
-        files.append(glob.glob(f"{user_dirs}/{directory}/*"))
-        for files_path in files:
-            list = []
-            for file_path in files_path:
-                file = file_path.split("\\")[-1]
-                if(file == "info.txt"):
-                    with open(file_path,mode="r") as f:
-                        created_date = f.readline()
-                        accuracy = f.readline()
-                        l = {"created at":created_date.split(": ")[1]}
-                        list.append(l)
-                        l = {"accuracy":accuracy.split(": ")[1]}
-                        list.append(l)
-                if "video" in file:
-                    l = {"input video": file_path}
-                    list.append(l)
-                if "target_image" in file:
-                    l = {"target images": file_path}
-                    list.append(l)
-                if "output_video" in file:
-                    l = {"output video": file_path}
-                    list.append(l)
-            history.append(list)
-    return history
 
 
     

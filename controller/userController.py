@@ -33,7 +33,3 @@ def add_new_user(db,name, email, password):
         except EmailNotValidError as e:
             raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Email is Invalid")
 
-def show_user_data(db,form_data):
-    current_user_email = form_data.email
-    user = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
-    return user
