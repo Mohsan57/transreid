@@ -13,7 +13,6 @@ import db_models
 import smtplib
 from database import engine
 from email_sender import send_email
-from fastapi_frame_stream import FrameStreamer
 router = APIRouter(
     prefix="/video-reid",
     tags=["video-reid"]
@@ -173,13 +172,25 @@ async def get_target_image (request: Request,link: str, db:Session = Depends(get
 async def video_history( db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends(OAuth.get_current_user)):
     current_user_email = form_data.email
     info = db.query(db_models.Reid_Video).join(db_models.User, db_models.User.id == db_models.Reid_Video.user_id).filter(db_models.User.email == current_user_email).all()
-    videos_info = []
+    history = []
     if info:
         for row in info:
-            temp_dict = {"video":row.video_name,"image":row.img_name}
-            videos_info.append(temp_dict)
+            img_path = row.img_path
+            str = img_path.split("/")
+            
+            with open(f"{str[0]}/{str[1]}/{str[2]}/info.txt") as file:
+                line = file.readlines()
+            created_at = line[0]
+            print(created_at)
+            created_date = created_at.split(" ")[2]
+            created_time =  created_at.split(" ")[3]
+            created_time = created_time.replace("\n","")
+            accuracy = (line[1].split(": ")[-1])
+            accuracy =  accuracy.replace("\n","")
+            temp_dict = {"accuracy":accuracy,"created date": created_date, "created time":created_time,"video":row.video_name,"image":row.img_name}
+            history.append({str[2]:temp_dict})
     
             
         
-    return {"History":videos_info}
+    return {"History":history}
         
