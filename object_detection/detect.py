@@ -42,7 +42,7 @@ class ObjectDetection():
         self.names = self.model.module.names if hasattr(self.model, 'module') else self.model.names
         # Run inference
         if self.device.type != 'cpu':
-            self.model(torch.zeros(1, 3, self,self.imgsz, self.imgsz).to(self.device).type_as(next(self.model.parameters())))  # run once
+            self.model(torch.zeros(1, 3, self.imgsz, self.imgsz).to(self.device).type_as(next(self.model.parameters())))  # run once
         self.old_img_w = self.old_img_h = self.imgsz
         self.old_img_b = 1
         
