@@ -1,73 +1,117 @@
 from fastapi.security import OAuth2PasswordRequestForm
 import OAuth
-from fastapi import APIRouter, Depends, status, Response
+from fastapi import APIRouter, Depends, status, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect
 from database import get_db
 from sqlalchemy.orm import Session
 from fastapi.responses import StreamingResponse
 import cv2
-import time
-
-
+import db_models, schemas
+from sqlalchemy import and_
+from sqlalchemy.exc import IntegrityError, NoResultFound
+import os
+from controller import liveController
+import asyncio
 router = APIRouter(
     prefix="/live-camera-reid",
     tags=["single-camera-reid"]
 )
 
-# Define dictionaries to store camera IP addresses, video stream objects, and URLs for each camera
-cameras = {}
-streams = {}
 
 # Define a route to add a new camera by IP address, username, and password
-@router.post("/add_camera/{ip}")
-async def add_camera(ip: str, username: str = None, password: str = None):
-    if ip not in cameras:
-        # Create a new video stream object for the camera with the supplied username and password
-        cameras[ip] = cv2.VideoCapture(f"http://{username}:{password}@{ip}/video")
-        # Add a new URL for the camera's video stream
-        streams[ip] = f"/stream_camera/{ip}"
-        return {"message": f"Camera {ip} added successfully!"}
-    else:
-        return {"message": f"Camera {ip} already exists!"}
+@router.post("/add_camera",status_code=status.HTTP_200_OK)
+async def add_camera(request: schemas.cameras, db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends(OAuth.get_current_user)):
+    try:
+        current_user_email = form_data.email
+        user = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
+         # Establish a connection to the camera
+        camera_url = f"http://{request.username}:{request.password}@{request.ip}/video"
+        cap = cv2.VideoCapture(camera_url)
 
-# Define a route to remove a camera by IP address
-@router.delete("/remove_camera/{ip}")
-async def remove_camera(ip: str):
-    if ip in cameras:
-        # Release the video stream object for the camera and remove it from the dictionary
+        # Check if the connection was successful
+        if not cap.isOpened():
+            raise HTTPException(status_code= status.HTTP_404_NOT_FOUND,  detail="Camera not opened")
+
+        # Read a frame from the video feed
+        ret, frame = cap.read()
+
+        # Check if the frame was successfully read
+        if not ret:
+            cap.release()
+            raise HTTPException(status_code= status.HTTP_404_NOT_FOUND,  detail="Failed to retrieve video feed from the camera.")
+        cap.release()
         cv2.destroyAllWindows()
-        cameras[ip].release()
-        cameras.pop(ip)
-        # Remove the URL for the camera's video stream
-        print(streams)
-        streams.pop(ip)
-        return {"message": f"Camera {ip} removed successfully!"}
-    else:
-        return {"message": f"Camera {ip} does not exist!"}
+        # store in DB
+        try:
+            camera = db_models.Camera(user_id = user.id, ip = request.ip, username= request.username, password = request.password)
+            db.add(camera)
+            db.commit()    
+            return  {"Success": [{"Message":"Camera Added Successfuly!"}]}
+        except IntegrityError as i:
+            raise HTTPException(status_code= status.HTTP_404_NOT_FOUND,  detail="This IP address already Exist!")
+    except Exception:
+        raise HTTPException(status_code= status.HTTP_404_NOT_FOUND,  detail="Error During building connection!")
+    
+# Define a route to remove a camera by IP address
+@router.delete("/remove_camera/{ip}", status_code=status.HTTP_200_OK)
+async def remove_camera(ip: str, db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends(OAuth.get_current_user)):
+    try:
+        current_user_email = form_data.email
+        user = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
+        cameras = db.query(db_models.Camera).filter(and_(db_models.Camera.ip.like(ip), db_models.Camera.user_id.like(user.id))).first()
+        print(cameras)
+        if cameras:
+            db.delete(cameras)
+            db.commit()
+            return  {"Success": [{"Message":"Camera Deleted Successfuly!"}]}
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Wrong IP Address")
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Wrong IP Address")
+
 
 # Define a route to stream a camera's video feed
-@router.get("/stream_camera/{ip}")
-async def stream_camera(ip: str):
-    if ip in cameras:
-        # Define a generator function to read frames from the video stream object and yield them as JPEG images
-        def generate_frames():
-            while True:
-                ret, frame = cameras[ip].read()
-                if not ret:
-                    break
-                _, buffer = cv2.imencode(".jpg", frame)
-                yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n"
-        # Return a StreamingResponse object with the generator function as its content
-        return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace;boundary=frame")
-    else:
-        return Response(status_code=404, content="Camera not found!")
+@router.websocket("/stream_camera/{ip}")
+async def stream_camera(websocket: WebSocket, ip: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    try:
+        # Fetch the camera details from the database
+        camera = db.query(db_models.Camera).filter(db_models.Camera.ip.like(ip)).first()
+        if camera:
+            # Establish a WebSocket connection
+            await websocket.accept()
+            
+            dir = f"live/{camera.user_id}/{camera.id}"
+            path = os.path.join("temp/", dir)
+            try:
+                os.makedirs(path)
+            except Exception:
+                print("Already exist")
+            
+            live_camera = liveController.LiveCameraReid(base_dir=path)
+            
+            await live_camera.send_camera_frames(websocket = websocket ,ip = camera.ip, username = camera.username,password = camera.password)
+            # Start the camera frame streaming in the background task
+            # background_tasks.add_task(sync_wrapper,websocket,camera.ip, camera.username,camera.password)
 
+        else:
+            raise HTTPException(status_code=404, detail="Camera not found!")
+    except Exception:
+        raise HTTPException(status_code=404, detail="Camera not opened")   
+    
+
+def sync_wrapper(websocket,ip, username,password):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(liveController.send_camera_frames(websocket = websocket ,ip = ip, username = username,password = password))
+    
+    
+    
+    
 # Define a route to list all cameras and their corresponding video stream URLs
-@router.get("/list_cameras")
-async def list_cameras():
-    return {"cameras": [{"ip": ip, "stream_url": streams[ip]} for ip in cameras]}
-
-
-
+@router.get("/list_cameras",status_code=status.HTTP_200_OK)
+async def list_cameras(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends(OAuth.get_current_user)):
+    current_user_email = form_data.email
+    user = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
+    cameras = db.query(db_models.Camera).filter(db_models.Camera.user_id == user.id).all()     
+    return {"cameras": [{"ip": camera.ip, "username": camera.username} for camera in cameras]}
 
 
 # cap = None  # Global variable to store the video capture object

@@ -11,9 +11,20 @@ class Users(BaseModel):
 class reid_videos(BaseModel):
     video_name: str
     video_path: str
-    
-    
 
+class cameras(BaseModel):
+    ip: str | None = None
+    username: str | None = None
+    password: str | None = None
+
+class show_cameras(BaseModel):
+    ip: str
+    username: str
+    password: str
+    class Config():
+        orm_mode = True
+    
+    
 class errors(BaseModel):
     error_code: str
     error_message: str

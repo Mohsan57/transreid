@@ -1,18 +1,22 @@
 import base64
-import os
+from file_operations import make_dir, upload_video, dir_info_file, get_random_str
 
-from fastapi import APIRouter, Depends, status, Response, HTTPException, Header,BackgroundTasks, Request
+from fastapi import APIRouter, Depends, status, HTTPException, Header,BackgroundTasks, Request
 from fastapi.security import OAuth2PasswordRequestForm
 import OAuth
 from database import get_db
 from sqlalchemy.orm import Session
 from fastapi import File, UploadFile, Query
-from controller import videoController
-from fastapi.responses import FileResponse, StreamingResponse
+from controller.videoController import VideoController
+from fastapi.responses import FileResponse
 import db_models
 import smtplib
 from database import engine
 from email_sender import send_email
+import setting
+
+
+
 router = APIRouter(
     prefix="/video-reid",
     tags=["video-reid"]
@@ -28,7 +32,9 @@ queue = []  # initialize empty task queue
 
 current_task = {"id": None, "queue": []}  # initialize current task to None
 
-import setting
+
+
+
 
 @router.post("/upload", status_code=status.HTTP_200_OK)
 async def upload_video_and_target( background_tasks: BackgroundTasks,
@@ -48,15 +54,16 @@ async def upload_video_and_target( background_tasks: BackgroundTasks,
                 return {"message": "Task queue is full. Please try again later."}
             
             current_user_email = form_data.email
-            device = "cpu"
+            
             users = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
             user_id = users.id
-            dir_name = videoController.make_dir(user_id=user_id)
+            dir_name = make_dir(user_id=user_id)
 
             base_dir = f'users/{user_id}/{dir_name}'
-            videoController.dir_info_file(base_dir = base_dir,accuracy=accuracy)
+            dir_info_file(base_dir = base_dir,accuracy=accuracy)
             
-            videoController.upload_video(base_dir=base_dir, video= video, target_image=target_image)
+            extensions = upload_video(base_dir=base_dir, video= video, target_image=target_image)
+            
             video_extension = video.filename.split(".")[-1]
             image_extension = target_image.filename.split(".")[-1]
             video_url = f"{base_dir}/org_video.{video_extension}"
@@ -64,15 +71,14 @@ async def upload_video_and_target( background_tasks: BackgroundTasks,
             # async with asyncio.wait():  # use lock to modify shared variables safely
             queue.append(task_id)  # add task to queue
                         
-            objects = {"device":device,"base_dir": base_dir,
-                    "video_url":video_url,"accuracy":accuracy,
+            objects = {"base_dir": base_dir, "accuracy":accuracy,
                     "task_id":task_id,"user_email":current_user_email,"username":users.name, 
-                    "user_id":user_id,"image_extension":image_extension}
+                    "user_id":user_id,"image_extension":image_extension, "video_extension":video_extension}
                 
             if current_task["id"] is None:  # start the task immediately if there is no current task
                     current_task["id"] = task_id
-                    current_task["task"] =  background_tasks.add_task(backgroud_process,objects["device"],objects["base_dir"],objects["video_url"],objects["accuracy"],objects["user_email"],
-                                                                      objects["username"],objects["user_id"],objects["task_id"],objects["image_extension"])
+                    current_task["task"] =  background_tasks.add_task(backgroud_process,objects["base_dir"],objects["accuracy"],objects["user_email"],
+                                                                      objects["username"],objects["user_id"],objects["task_id"],objects["image_extension"],objects["video_extension"])
                             
             else:
                     # add the task ID to the current task's queue
@@ -86,10 +92,13 @@ async def upload_video_and_target( background_tasks: BackgroundTasks,
         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Please Upload Only Video and Image")
     
 
-def backgroud_process(device,base_dir,video_url,accuracy,user_email,username,user_id,task_id,image_extension):
+def create_VideoController_object(base_dir ,accuracy, video_extension, image_extension):
+    video_controller  = VideoController(base_dir=base_dir, accuracy=accuracy,video_extension=video_extension,image_extension=image_extension)
+    return video_controller.reid()
+
+def backgroud_process(base_dir,accuracy,user_email,username,user_id,task_id,image_extension,video_extension):
     
-    
-    video_url = videoController.reid(device=device, base_dir=base_dir, video_url=video_url, accuracy=accuracy,image_extension=image_extension)
+    video_url = create_VideoController_object(base_dir=base_dir, accuracy=accuracy,video_extension = video_extension,image_extension=image_extension)
     task_completed_send_mail(result=video_url,base_dir=base_dir,image_extension= image_extension,receiver_email=user_email,username=username,user_id=user_id)
     global current_task
     if current_task["id"] == task_id:
@@ -101,13 +110,12 @@ def backgroud_process(device,base_dir,video_url,accuracy,user_email,username,use
                 next_task_objects = current_task["queue"].pop(0)
                         
                 current_task["id"] = next_task_objects["task_id"]
-                current_task["task"] = backgroud_process(device= next_task_objects["device"],base_dir= next_task_objects["base_dir"],
-                                                                            video_url= next_task_objects["video_url"],accuracy= next_task_objects["accuracy"],
-                                                                            user_email=next_task_objects["user_email"],username=next_task_objects["username"],user_id=next_task_objects["user_id"]
-                                                                            ,task_id=next_task_objects["task_id"], image_extension=next_task_objects["image_extension"])
+                current_task["task"] = backgroud_process(base_dir = next_task_objects["base_dir"],accuracy = next_task_objects["accuracy"],
+                                                                            user_email=next_task_objects["user_email"], username=next_task_objects["username"],user_id=next_task_objects["user_id"]
+                                                                            ,task_id=next_task_objects["task_id"], image_extension=next_task_objects["image_extension"], video_extension = next_task_objects["video_extension"])
             
 def task_completed_send_mail(result,base_dir,image_extension,receiver_email,username,user_id):
-    image_name = videoController.get_random_str()
+    image_name = get_random_str()
     new_video = db_models.Reid_Video(user_id = user_id,video_name = result ,video_path = f"{base_dir}/output_video.mp4",img_name = image_name,img_path = f"{base_dir}/target_image.{image_extension}")
     session = Session(bind=engine)
     session.add(new_video)

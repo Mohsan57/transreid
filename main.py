@@ -5,6 +5,7 @@ import db_models, database
 from database import engine
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.templating import Jinja2Templates
+from setting import ORIGINS
 # for Ngrok
 # from fastapi.logger import logger
 # from pydantic import BaseSettings
@@ -50,13 +51,11 @@ app = FastAPI()
 
 
 db_models.Base.metadata.create_all(engine)
-origins = [
-       "http://localhost",
-       "http://localhost:3000",]
+
 
 app.add_middleware(
        CORSMiddleware,
-       allow_origins=origins,
+       allow_origins=ORIGINS,
        allow_credentials=True,
        allow_methods=["*"],
        allow_headers=["*"],

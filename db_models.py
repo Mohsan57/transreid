@@ -15,6 +15,7 @@ class User(Base):
     password = Column(String, nullable=False)
     
     reid_video: Mapped[List["Reid_Video"]] = relationship(back_populates = "user")
+    camera: Mapped[List['Camera']] = relationship(back_populates="user")
     
 
 class Reid_Video(Base):
@@ -27,7 +28,7 @@ class Reid_Video(Base):
     img_name = Column(String,nullable=False)
     img_path = Column(String, nullable=False)   
     user = relationship("User", back_populates="reid_video")
- 
+    
 class Error(Base):
     __tablename__ = "errors"
 
@@ -36,3 +37,16 @@ class Error(Base):
     error_message = Column(String, nullable=True)
     receiver_email = Column(String,nullable=True)
     time_created = Column(DateTime(timezone=True), server_default=func.now())
+    
+class Camera(Base):
+    __tablename__ = 'cameras'
+    
+    id = Column(Integer,primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    ip = Column(String, unique=True)
+    username = Column(String, nullable=True)
+    password = Column(String, nullable=True)
+        
+    
+    user = relationship("User",back_populates="camera")
+    

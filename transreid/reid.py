@@ -13,20 +13,27 @@ transform = T.Compose([
 ])
 
 class REID:
-  def __init__(self, device, base_dir, weight,image_extension):
+  def __init__(self, base_dir,image_extension):
     self.image_extension = image_extension
-    self.device = torch.device(device)
+    self.device = torch.device(setting.DEVICE)
     self.base_dir = base_dir
-    self.weight = weight
+    self.weight = f"trans_reid_models/{setting.TRANSREID_MODEL_NAME}"
     self.num_classes, self.camera_num, self.view_num = 702,8,1
     
-    self.model = make_model(num_class=self.num_classes, camera_num=self.camera_num, view_num = self.view_num,device = self.device)
+    self.model = make_model(num_class=self.num_classes, camera_num=self.camera_num, view_num = self.view_num,device=self.device)
     
     self.model.load_param(self.weight)
     self.model = nn.DataParallel(self.model)
     self.model.to(self.device)
     self.model.eval()
      
+  def __del__(self):
+    del self.model
+  
+  def reload_model(self):
+    self.model.to(self.device)
+    self.model.eval()
+    
   def extract_number(self,filename):
       try:
           return int(filename.split('/')[-1][5:-4])
@@ -35,25 +42,28 @@ class REID:
           return float('inf')
   def idetification(self):
       try:
-        
+        print("Identification RUN 1")
         images = []
         images = glob.glob(f"{self.base_dir}/person/crops/person/*.jpg")
         
         images = sorted(images, key=self.extract_number)
-        
+        print("Identification RUN 2")
+        print(self.image_extension)
         target = f"{self.base_dir}/target_image.{self.image_extension }"
         
         target_image = Image.open(target)
-        
         target_image_to_tensor = transform(target_image).unsqueeze(0)
-        target_tensor = self.model(target_image_to_tensor, cam_label=6, view_label=1)
         
+        print("Identification RUN 2.5")
+        target_tensor = self.model(target_image_to_tensor, cam_label=6, view_label=1)
+        print("Identification RUN 3")
         try:
           os.mkdir(f"{self.base_dir}/identified_people/")
         except:
           print("already exist directory")
-
+        print("Identification RUN 4")
         with open(f"{self.base_dir}/identified_people/information.txt", "w") as writefile:
+          print("Identification RUN 5")
           for image in images:
             open_image = Image.open(image)
             image_tensor = transform(open_image).unsqueeze(0)

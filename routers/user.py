@@ -32,3 +32,4 @@ async def get_current_data(db: Session = Depends(get_db), form_data: OAuth2Passw
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Not Found")
     return user
+

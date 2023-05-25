@@ -26,7 +26,10 @@ def add_new_user(db,name, email, password):
                 parent_dir = "users/"
                 # Path
                 path = os.path.join(parent_dir, directory)
-                os.mkdir(path)
+                try:
+                    os.mkdir(path)
+                except Exception:
+                    return new_user    
                 return new_user
             except IntegrityError as i:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This Email is already Register")
