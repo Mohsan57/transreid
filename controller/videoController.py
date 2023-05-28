@@ -8,7 +8,7 @@ from file_operations import get_random_str, handler
 import torch
 import setting
 
-class VideoController(ObjectDetection):
+class VideoController():
     def __init__(self, base_dir ,accuracy, video_extension, image_extension):
         self.base_dir = base_dir
         self.accuracy =accuracy
@@ -22,7 +22,7 @@ class VideoController(ObjectDetection):
         self.video_extension = video_extension
         self.image_extension = image_extension
         self.video_path = f"{self.base_dir}/org_video.{self.video_extension}"
-        ObjectDetection.__init__(self=self , weights=self.object_detec_weight, output_dir=self.base_dir)
+        
         
     
     def __del__(self):
@@ -39,8 +39,9 @@ class VideoController(ObjectDetection):
         frame_reducer.reduce_frames()
         
     def object_detection(self):
+        detection = ObjectDetection(weights=self.object_detec_weight, output_dir=self.base_dir)
         video_url = f"{self.base_dir}/video.{self.video_extension}"
-        ObjectDetection.detect(self=self,source=video_url)
+        detection.detect(source=video_url)
 
     def TransReID(self):
         try:

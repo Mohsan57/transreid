@@ -9,7 +9,7 @@ import db_models, schemas
 from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError, NoResultFound
 import os
-from controller import liveController
+from controller.liveController import LiveCameraReid
 import asyncio
 router = APIRouter(
     prefix="/live-camera-reid",
@@ -27,7 +27,7 @@ async def add_camera(request: schemas.cameras, db: Session = Depends(get_db), fo
         camera_url = f"http://{request.username}:{request.password}@{request.ip}/video"
         cap = cv2.VideoCapture(camera_url)
 
-        # Check if the connection was successful
+        # Check if the connection was not successful
         if not cap.isOpened():
             raise HTTPException(status_code= status.HTTP_404_NOT_FOUND,  detail="Camera not opened")
 
@@ -36,7 +36,6 @@ async def add_camera(request: schemas.cameras, db: Session = Depends(get_db), fo
 
         # Check if the frame was successfully read
         if not ret:
-            cap.release()
             raise HTTPException(status_code= status.HTTP_404_NOT_FOUND,  detail="Failed to retrieve video feed from the camera.")
         cap.release()
         cv2.destroyAllWindows()
@@ -83,9 +82,17 @@ async def stream_camera(websocket: WebSocket, ip: str, background_tasks: Backgro
             try:
                 os.makedirs(path)
             except Exception:
-                print("Already exist")
+                print("path Already exist")
+            camera_url = f"http://{camera.username}:{camera.password}@{camera.ip}/video"
+            cap = cv2.VideoCapture(camera_url)
+
+            # Check if the connection was successful
+            if not cap.isOpened():
+                raise HTTPException(status_code= status.HTTP_404_NOT_FOUND,  detail="Camera not opened")
             
-            live_camera = liveController.LiveCameraReid(base_dir=path)
+            cap.release()
+            
+            live_camera = LiveCameraReid(base_dir=path)
             
             await live_camera.send_camera_frames(websocket = websocket ,ip = camera.ip, username = camera.username,password = camera.password)
             # Start the camera frame streaming in the background task
@@ -93,14 +100,15 @@ async def stream_camera(websocket: WebSocket, ip: str, background_tasks: Backgro
 
         else:
             raise HTTPException(status_code=404, detail="Camera not found!")
+        
     except Exception:
         raise HTTPException(status_code=404, detail="Camera not opened")   
     
 
-def sync_wrapper(websocket,ip, username,password):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(liveController.send_camera_frames(websocket = websocket ,ip = ip, username = username,password = password))
+# def sync_wrapper(websocket,ip, username,password):
+#     loop = asyncio.new_event_loop()
+#     asyncio.set_event_loop(loop)
+#     loop.run_until_complete(liveController.send_camera_frames(websocket = websocket ,ip = ip, username = username,password = password))
     
     
     

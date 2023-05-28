@@ -3,61 +3,10 @@ import glob
 import torch
 import numpy as np
 import re
-
-def xywh2xyxy(x):
-    # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where xy1=top-left, xy2=bottom-right
-    y = x.clone() if isinstance(x, torch.Tensor) else np.copy(x)
-    y[..., 0] = x[..., 0] - x[..., 2] / 2  # top left x
-    y[..., 1] = x[..., 1] - x[..., 3] / 2  # top left y
-    y[..., 2] = x[..., 0] + x[..., 2] / 2  # bottom right x
-    y[..., 3] = x[..., 1] + x[..., 3] / 2  # bottom right y
-    return y
-
+from file_operations import xywh2xyxy
 
             
-            
-def make_video(self):
-        file = open(self.store_frame_info_name, 'r')
-        content = (file.read()).split("\n")
-        content.pop()
-        content_len = len(content)
-
-        # Extract all the numbers from the content
-        i = 0
-        # loop through each frame of the video
-        while self.cap.isOpened():
-            # read frame
-            ret, frame = self.cap.read()
-            
-            # check if frame was successfully read
-            if ret:
-                if( i < content_len):
-                    line = content[i]
-                    if(line != "break"):
-                        x,y,w,h = re.findall(r'\d\.\d+', line)
-                        xywh = [float(x),float(y), float(w), float(h)]
-                        xywh = np.array(xywh)
-                        xyxy = xywh2xyxy(xywh)
-                        box_x1 = (xyxy[0]*self.width )
-                        box_y1 = (xyxy[1]*self.height)
-                        box_x2 = (xyxy[2]*self.width)
-                        box_y2 = (xyxy[3]*self.height)
-                    
-                        cv2.rectangle(frame, (int(box_x1), int(box_y1)), (int(box_x2), int(box_y2)), (0, 0, 255), 2)
-                self.out.write(frame)
-                i+=1
-                # pause between frames
-                if cv2.waitKey() & 0xFF == ord('q'):
-                    break
-            else:
-                break
-
-        # release VideoCapture and VideoWriter objects
-
-        self.cap.release()
-        self.out.release()
-
-        cv2.destroyAllWindows()
+ 
 # create VideoCapture object
 
 class Make_ReID_Video:

@@ -20,9 +20,7 @@ class ObjectDetection():
         self.imgsz = 640
         self.output_dir = output_dir
         self.name = 'person' 
-         # checkkkkkk 
-        self.save_dir = Path(increment_path(Path(self.output_dir) / self.name, exist_ok=False))  # increment run
-        (self.save_dir / 'labels' if self.save_txt else self.save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+        
 
         # Initialize
         set_logging()
@@ -34,7 +32,7 @@ class ObjectDetection():
         self.stride = int(self.model.stride.max())  # model stride
         self.imgsz = check_img_size(self.imgsz, s=self.stride)  # check img_size
         
-        if self.half:
+        if self.half: # if not cpu
             print("gpu")
             self.model.half()  # to FP16
         
@@ -42,15 +40,17 @@ class ObjectDetection():
         self.names = self.model.module.names if hasattr(self.model, 'module') else self.model.names
         # Run inference
         if self.device.type != 'cpu':
-            self.model(torch.zeros(1, 3, self,self.imgsz, self.imgsz).to(self.device).type_as(next(self.model.parameters())))  # run once
+            self.model(torch.zeros(1, 3, self.imgsz, self.imgsz).to(self.device).type_as(next(self.model.parameters())))  # run once
         self.old_img_w = self.old_img_h = self.imgsz
         self.old_img_b = 1
         
-    def __del__(self):
-        del self.model, self.half, self.save_dir
-    
+
     def detect(self, source):
         augment = False
+         # checkkkkkk 
+        self.save_dir = Path(increment_path(Path(self.output_dir) / self.name, exist_ok=False))  # increment run
+        (self.save_dir / 'labels' if self.save_txt else self.save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+        
         dataset = LoadImages(source, img_size=self.imgsz, stride=self.stride)
         
         for path, img, im0s, vid_cap in dataset:
