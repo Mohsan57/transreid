@@ -5,6 +5,5 @@ users/
 test/
 algorithms/
 Dockerfile
-app.yaml
 .Dockerfile
 

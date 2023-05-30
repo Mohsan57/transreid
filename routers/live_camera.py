@@ -1,6 +1,6 @@
 from fastapi.security import OAuth2PasswordRequestForm
 import OAuth
-from fastapi import APIRouter, Depends, status, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, status, BackgroundTasks, HTTPException, WebSocket, UploadFile, File
 from database import get_db
 from sqlalchemy.orm import Session
 import cv2
@@ -65,6 +65,25 @@ async def remove_camera(ip: str, db: Session = Depends(get_db), form_data: OAuth
     except Exception:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Wrong IP Address")
 
+# @router.post("/upload-target-image",status_code=status.HTTP_200_OK)
+# def upload_target_image(target_image: UploadFile = File(title="Target Image",description="Select Target Image")):
+#     image_extension = target_image.filename.split(".")[-1]
+    
+#     try:
+#         files = os.listdir(base_dir)
+#         for file in files:
+#             if file.startswith("target_image"):
+#                 os.remove(f"{base_dir}/{file}")
+#     except Exception as e:
+#         print("Error removing pre target")
+#     try:
+#         with open(f"{base_dir}/target_image.{image_extension}", "wb") as buffer:
+#             shutil.copyfileobj(target_image.file, buffer)
+#         return {"details":"Successfully upload"}        
+#     except shutil.ExecError as err:
+#         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"File Uploading Error\n{err}")
+
+    
 
 # Define a route to stream a camera's video feed
 @router.websocket("/stream_camera/{ip}")
