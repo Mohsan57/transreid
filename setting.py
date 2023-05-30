@@ -14,6 +14,7 @@ TRANSREID_ACCURACY_MATCH = 0.71
 ORIGINS = [
        "http://localhost",
        "http://localhost:3000",
+       "http://192.168.18.116",
        "https://gregarious-pothos-f687f0.netlify.app",]
 
 

@@ -11,11 +11,33 @@ class LiveCameraReid():
     def __init__(self, base_dir):
         self.base_dir = base_dir
         self.weight = 'object_detection_models/yolov7-tiny.pt'
-        self.object_detection = ObjectDetection(self.weight,output_dir=self.base_dir)
-        self.reid = REID(self.base_dir,'png')
+        self.is_target_image_set = False
+        
+        filename = 'target_image'
+
+        # get list of all files in the specified directory
+        files = os.listdir(base_dir)
+
+        # loop through each file and check for 'target_image' with an image extension
+        image_extensions = ['.jpg', '.png', '.jpeg']
+        for file in files:
+            if file.startswith(filename) and os.path.splitext(file)[1] in image_extensions:
+                extension = file.split('.')[1]
+                
+                self.object_detection = ObjectDetection(self.weight,output_dir=self.base_dir)
+                
+                self.reid = REID(self.base_dir,extension)
+                self.is_target_image_set = True
+        else:
+            print('Target image does not exist')
+        
+        
         
         
     def live_reid(self, frame, width, height):
+        if(self.is_target_image_set == False):
+            _, buffer = cv2.imencode(".jpg", frame)
+            return buffer
         cv2.imwrite(f"{self.base_dir}/frame.jpg", frame)     # save frame as JPEG file 
         self.object_detection.detect(source=f"{self.base_dir}/frame.jpg")
         self.reid.idetification()

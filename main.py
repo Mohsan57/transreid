@@ -1,6 +1,6 @@
 from fastapi import FastAPI,HTTPException, BackgroundTasks, Request
 from typing import List
-from routers import user,authentication, video_reid, live_camera
+from routers import user,authentication, video_reid, live_camera, arduino_test
 import db_models, database
 from database import engine
 from fastapi.middleware.cors import CORSMiddleware
@@ -127,15 +127,11 @@ def process_task_in_background(task_id):
             current_task["task"] =  (process_task_in_background(next_task_id))
             
 
-# @app.on_event("startup")
-# async def startup():
-#     global current_task
-#     current_task = {"id": None, "queue": []}
 
-    
 
 
 app.include_router(authentication.router)
 app.include_router(user.router)
 app.include_router(video_reid.router)
 app.include_router(live_camera.router)
+app.include_router(arduino_test.router)
