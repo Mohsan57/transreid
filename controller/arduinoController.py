@@ -43,8 +43,9 @@ class ArduinoController():
             f.write(frame)
         frame  = cv2.imread(f"{self.base_dir}/frame.jpg")
         height, width, _ = frame.shape
-        height_center = int(height)/2
-        width_center = int(width)/2
+        
+        frame_center_y = int(height)/2
+        frame_center_x = int(width)/2
         
         self.object_detection.detect(source=f"{self.base_dir}/frame.jpg")
         self.reid.idetification()
@@ -99,11 +100,19 @@ class ArduinoController():
             print("Error in Removing files: "+e)  
          # Encode the frame as JPEG
         cv2.destroyAllWindows()
+        
+        object_center_x = (box_x1 + box_x2) / 2
+        object_center_y = (box_y1 + box_y2) / 2
+        deviation_x = object_center_x - frame_center_x
+        deviation_y = object_center_y - frame_center_y
+
+        mapped_x = map_value(deviation_x, -frame_center_x, frame_center_x, 0, 180)
+        mapped_y = map_value(deviation_y, -frame_center_y, frame_center_y, 0, 180)
+
         return {"Details":[{
-            "x1":box_x1,
-            "x2":box_x2,
-            "y1":box_y1,
-            "y2":box_y2
+            "mapped_x":mapped_x,
+            "mapped_y":mapped_y
         }]}
     
-    
+def map_value(value, in_min, in_max, out_min, out_max):
+    return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
