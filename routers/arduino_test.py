@@ -34,6 +34,10 @@ def upload_target_image(target_image: UploadFile = File(title="Target Image",des
 async def handshake():
     return arduino.handshake()
 
+import base64
 @router.post("/upload-frame")
-async def upload_frame(frame: bytes = File(...)):
-   return arduino.arduino_reid(frame=frame)
+async def upload_frame(frame: bytes  = File(...)):
+    image_data = base64.b64decode(frame) 
+    with open(f'users/arduino/frame.jpg', 'wb+') as f:
+            f.write(image_data)
+    return arduino.arduino_reid()

@@ -34,14 +34,15 @@ class ArduinoController():
         
         return {"HandShake":"Rejected", "details":"First upload target Image"}
     
-    def arduino_reid(self, frame):
+    def arduino_reid(self):
         if(self.is_handshake == False):
             return {"details":"First call handshake"}
         if(self.is_target_image_set == False):
             return {"details":"First upload target Image"}
-        with open(f'{self.base_dir}/frame.jpg', 'wb+') as f:
-            f.write(frame)
+        
         frame  = cv2.imread(f"{self.base_dir}/frame.jpg")
+        if(frame is None):
+            return {"details": "Failed to read the saved image file"}
         height, width, _ = frame.shape
         
         frame_center_y = int(height)/2
@@ -54,6 +55,17 @@ class ArduinoController():
         info_file = open(f"{self.base_dir}/identified_people/information.txt",'r')
         detect_people = re.split(r'\s+',str(info_file.read()))
         detect_people.pop()
+        file_path = label
+
+        if not os.path.exists(label):
+            try:
+                shutil.rmtree(f"{self.base_dir}/person")
+                os.remove(f"{self.base_dir}/frame.jpg")
+            except shutil.Error as e:
+                print("Error in Removing files: "+e)  
+            # Encode the frame as JPEG
+            cv2.destroyAllWindows()
+            return {"details":"No object Detect"}
         label_file = open(label)
         Lines_in_one_label = str(label_file.read()).split("\n")
         Lines_in_one_label.pop()
@@ -109,10 +121,12 @@ class ArduinoController():
         mapped_x = map_value(deviation_x, -frame_center_x, frame_center_x, 0, 180)
         mapped_y = map_value(deviation_y, -frame_center_y, frame_center_y, 0, 180)
 
-        return {"Details":[{
+        return {"details":{
             "mapped_x":mapped_x,
             "mapped_y":mapped_y
-        }]}
+        }}
     
 def map_value(value, in_min, in_max, out_min, out_max):
     return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+
