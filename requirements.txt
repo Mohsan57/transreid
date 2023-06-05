@@ -41,3 +41,7 @@ imutils
 fastapi_mail
 python-dotenv
 mailtrap
+
+
+# install it if get error
+#ffmpeg 

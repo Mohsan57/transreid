@@ -15,7 +15,11 @@ transform = T.Compose([
 class REID:
   def __init__(self, base_dir,image_extension):
     self.image_extension = image_extension
-    self.device = torch.device(setting.DEVICE)
+    self.device = None
+    if setting.DEVICE == 'cuda':
+       self.device = 'cuda'
+    else:
+      self.device = torch.device(setting.DEVICE)
     self.base_dir = base_dir
     self.weight = f"trans_reid_models/{setting.TRANSREID_MODEL_NAME}"
     self.num_classes, self.camera_num, self.view_num = 702,8,1
