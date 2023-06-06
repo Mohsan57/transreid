@@ -1,5 +1,5 @@
 
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = "http://34.133.165.142"
 EMAIL = "campus.surveillance.system@gmail.com"
 PASSWORD  = "bfomqqctqfobtgta"
 QUEUE_LENGTH = 3
