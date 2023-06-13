@@ -40,4 +40,4 @@ async def upload_frame(frame: bytes  = File(...)):
     image_data = base64.b64decode(frame) 
     with open(f'users/arduino/frame.jpg', 'wb+') as f:
             f.write(image_data)
-    return arduino.arduino_reid()
+    return await arduino.arduino_reid()

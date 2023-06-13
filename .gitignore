@@ -1,6 +1,6 @@
 trans_reid_models/*
 object_detection_models/*
-venv/
+.venv/
 users/
 test/
 algorithms/
