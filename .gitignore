@@ -1,9 +1,5 @@
-trans_reid_models/*
-object_detection_models/*
 .venv/
 users/
 test/
 algorithms/
-Dockerfile
-.Dockerfile
 
