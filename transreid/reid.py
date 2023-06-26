@@ -43,6 +43,7 @@ class REID:
           # return a large number if the filename doesn't contain a valid number
           return float('inf')
   def idetification(self):
+      print("start identification")
       try:
         images = []
         images = glob.glob(f"{self.base_dir}/person/crops/person/*.jpg")
@@ -50,7 +51,8 @@ class REID:
         images = sorted(images, key=self.extract_number)
         target = f"{self.base_dir}/target_image.{self.image_extension }"
         
-        target_image = Image.open(target)
+        target_image = Image.open(target).convert('RGB')
+        
         target_image_to_tensor = transform(target_image).unsqueeze(0)
         target_tensor = self.model(target_image_to_tensor, cam_label=6, view_label=1)
         try:
@@ -59,7 +61,7 @@ class REID:
           print("already exist directory")
         with open(f"{self.base_dir}/identified_people/information.txt", "w") as writefile:
           for image in images:
-            open_image = Image.open(image)
+            open_image = Image.open(image).convert('RGB')
             image_tensor = transform(open_image).unsqueeze(0)
             image_tensor = self.model(image_tensor,  cam_label=6, view_label=1)
             similarity = torch.nn.functional.cosine_similarity(target_tensor, image_tensor)

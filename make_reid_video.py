@@ -75,7 +75,7 @@ class Make_ReID_Video:
            #error
            # Regular expression to extract number
             pattern = r'video_(\d+)\.txt'
-
+            
             # Loop through the list and extract number from each string
             label_files_number = []
             for s in labels:
@@ -95,8 +95,8 @@ class Make_ReID_Video:
 
             detect_people = re.split(r'\s+',str(info_file.read()))
             detect_people.pop()
-            
             detect_people = sorted(detect_people, key=lambda x: int(x[5:-4]))
+            
             file = open(self.store_frame_info_name,"w")
             
             for label in labels:

@@ -127,11 +127,15 @@ def process_task_in_background(task_id):
             current_task["task"] =  (process_task_in_background(next_task_id))
             
 
-
-
+import os
+try:
+    os.mkdir(f"users/")
+except:
+    pass
 
 app.include_router(authentication.router)
 app.include_router(user.router)
 app.include_router(video_reid.router)
 app.include_router(live_camera.router)
 app.include_router(arduino_test.router)
+
