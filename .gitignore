@@ -4,5 +4,9 @@ object_detection_models/*
 users/
 test/
 algorithms/
+<<<<<<< HEAD
 Dockerfile
 .Dockerfile
+=======
+
+>>>>>>> 3c2f73c9acd657c5127b0eab75806aeb521e6d11
