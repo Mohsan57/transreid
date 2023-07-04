@@ -67,9 +67,10 @@ class REID:
             similarity = torch.nn.functional.cosine_similarity(target_tensor, image_tensor)
             if(similarity[0]>=setting.TRANSREID_ACCURACY_MATCH):
               print( f" image index {image} cosine is: {str(similarity[0])}")
-            
-              str2 = image.split("/")
-              writefile.write(f"{str2[-1]}\n")
+              file_name = os.path.basename(image)
+              
+              # str2 = image.split("/")
+              writefile.write(f"{file_name}\n")
         
         return True
       except:
