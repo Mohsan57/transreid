@@ -1,6 +1,6 @@
 from fastapi.security import OAuth2PasswordRequestForm
 import OAuth
-from fastapi import APIRouter, Depends, status, BackgroundTasks, HTTPException, WebSocket, UploadFile, File
+from fastapi import APIRouter, Depends, Query, status, BackgroundTasks, HTTPException, WebSocket, UploadFile, File
 from database import get_db
 from sqlalchemy.orm import Session
 import cv2
@@ -9,7 +9,7 @@ from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 import os
 from controller.liveController import LiveCameraReid
-
+import shutil
 router = APIRouter(
     prefix="/live-camera-reid",
     tags=["single-camera-reid"]
@@ -42,7 +42,14 @@ async def add_camera(request: schemas.cameras, db: Session = Depends(get_db), fo
         try:
             camera = db_models.Camera(user_id = user.id, ip = request.ip, username= request.username, password = request.password)
             db.add(camera)
-            db.commit()    
+            db.commit()
+            db.refresh(camera)
+            dir = f"live/{user.id}/{camera.id}"
+            path = os.path.join("users/", dir)
+            try:
+                os.makedirs(path)
+            except Exception:
+                print("path Already exist")
             return  {"Success": [{"Message":"Camera Added Successfuly!"}]}
         except IntegrityError as i:
             raise HTTPException(status_code= status.HTTP_404_NOT_FOUND,  detail="This IP address already Exist!")
@@ -65,23 +72,37 @@ async def remove_camera(ip: str, db: Session = Depends(get_db), form_data: OAuth
     except Exception:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Wrong IP Address")
 
-# @router.post("/upload-target-image",status_code=status.HTTP_200_OK)
-# def upload_target_image(target_image: UploadFile = File(title="Target Image",description="Select Target Image")):
-#     image_extension = target_image.filename.split(".")[-1]
+
+
+# upload target image for REID
+@router.post("/upload-target-image",status_code=status.HTTP_200_OK)
+async def upload_target_image(camera_ip: str,target_image: UploadFile = File(title="Target Image",description="Select Target Image"),db: Session = Depends(get_db),
+                               form_data: OAuth2PasswordRequestForm = Depends(OAuth.get_current_user)):
     
-#     try:
-#         files = os.listdir(base_dir)
-#         for file in files:
-#             if file.startswith("target_image"):
-#                 os.remove(f"{base_dir}/{file}")
-#     except Exception as e:
-#         print("Error removing pre target")
-#     try:
-#         with open(f"{base_dir}/target_image.{image_extension}", "wb") as buffer:
-#             shutil.copyfileobj(target_image.file, buffer)
-#         return {"details":"Successfully upload"}        
-#     except shutil.ExecError as err:
-#         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"File Uploading Error\n{err}")
+    image_extension = target_image.filename.split(".")[-1]
+    target_image_type = target_image.content_type
+    if target_image_type.startswith("image"):
+        try:
+            current_user_email = form_data.email
+            users = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
+            user_id = users.id
+            camera = db.query(db_models.Camera).filter(and_(db_models.Camera.ip.like(camera_ip), db_models.Camera.user_id.like(user_id))).first()
+            camera_id = camera.id
+            base_dir = f"users/live/{user_id}/{camera_id}"
+            files = os.listdir(base_dir)
+            for file in files:
+                if file.startswith("target_image"):
+                    os.remove(f"{base_dir}/{file}")
+        except Exception as e:
+            print("Error removing already target image")
+        try:
+            with open(f"{base_dir}/target_image.{image_extension}", "wb") as buffer:
+                shutil.copyfileobj(target_image.file, buffer)
+            return {"details":"Successfully upload"}        
+        except shutil.ExecError as err:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"File Uploading Error\n{err}")
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File type is not supported")
 
     
 
@@ -91,6 +112,7 @@ async def stream_camera(websocket: WebSocket, ip: str, background_tasks: Backgro
     try:
         # Fetch the camera details from the database
         camera = db.query(db_models.Camera).filter(db_models.Camera.ip.like(ip)).first()
+        
         if camera:
             # Establish a WebSocket connection
             await websocket.accept()
@@ -117,6 +139,9 @@ async def stream_camera(websocket: WebSocket, ip: str, background_tasks: Backgro
             # background_tasks.add_task(sync_wrapper,websocket,camera.ip, camera.username,camera.password)
 
         else:
+            print(
+                f"Camera with IP address {ip} not found in the database!"
+            )
             raise HTTPException(status_code=404, detail="Camera not found!")
         
     except Exception:

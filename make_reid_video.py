@@ -50,7 +50,7 @@ class Make_ReID_Video:
                         box_x2 = (xyxy[2]*self.width)
                         box_y2 = (xyxy[3]*self.height)
                     
-                        cv2.rectangle(frame, (int(box_x1), int(box_y1)), (int(box_x2), int(box_y2)), (0, 0, 255), 2)
+                        cv2.rectangle(frame, (int(box_x1), int(box_y1)), (int(box_x2), int(box_y2)), (0, 0, 255), 2) # type: ignore
                 self.out.write(frame)
                 i+=1
                 # pause between frames
