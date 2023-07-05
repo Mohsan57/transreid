@@ -28,7 +28,9 @@ class LiveCameraReid():
                 
                 self.reid = REID(self.base_dir,extension)
                 self.is_target_image_set = True
-        else:
+                
+            
+        if self.is_target_image_set == False:
             print('Target image does not exist')
         
         
@@ -40,13 +42,30 @@ class LiveCameraReid():
             return buffer
         cv2.imwrite(f"{self.base_dir}/frame.jpg", frame)     # save frame as JPEG file 
         self.object_detection.detect(source=f"{self.base_dir}/frame.jpg")
+        
         self.reid.idetification()
         labels_path = f'{self.base_dir}/person/labels'
         label = f"{labels_path}/frame.txt"
         info_file = open(f"{self.base_dir}/identified_people/information.txt",'r')
         detect_people = re.split(r'\s+',str(info_file.read()))
         detect_people.pop()
-        label_file = open(label)
+        is_label_exist = False
+        try:
+            label_file = open(label)
+            is_label_exist = True
+        except:
+            is_label_exist = False
+        
+        if(is_label_exist == False):
+            info_file.close()
+            try:
+                shutil.rmtree(f"{self.base_dir}/person")
+            except shutil.Error as e:
+                print("Error in Removing files: "+e)
+             # Encode the frame as JPEG
+            _, buffer = cv2.imencode(".jpg", frame)
+            cv2.destroyAllWindows()
+            return buffer
         Lines_in_one_label = str(label_file.read()).split("\n")
         Lines_in_one_label.pop()
         rec_x = ""
@@ -110,12 +129,20 @@ class LiveCameraReid():
 
                         if not ret:
                             # Camera is disconnected
+                            try:
+                                shutil.rmtree(f"{self.base_dir}/person")
+                                shutil.rmtree(f"{self.base_dir}/identified_people")
+                                print("Camera is disconnected...")
+                            except shutil.Error as e:
+                                print("Error in Removing files: "+e)
+                            await websocket.close()
+
                             raise HTTPException(status_code=404, detail="Camera is stopped!")
                         
                         
                             # Process the frame (if needed)
                         buffer = self.live_reid(frame=frame,width=width,height=height)
-                         
+                        
                         await websocket.send_bytes(buffer.tobytes())
                        
                       
@@ -125,6 +152,7 @@ class LiveCameraReid():
                     # remove Dir
                     try:
                         shutil.rmtree(f"{self.base_dir}/person")
+                        shutil.rmtree(f"{self.base_dir}/identified_people")
                     except shutil.Error as e:
                         print("Error in Removing files: "+e)
                     await websocket.close()
