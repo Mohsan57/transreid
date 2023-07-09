@@ -1,3 +1,4 @@
+import asyncio
 from fastapi.security import OAuth2PasswordRequestForm
 import OAuth
 from fastapi import APIRouter, Depends, Query, status, BackgroundTasks, HTTPException, WebSocket, UploadFile, File
@@ -87,12 +88,15 @@ async def upload_target_image(camera_ip: str,target_image: UploadFile = File(tit
             users = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
             user_id = users.id
             camera = db.query(db_models.Camera).filter(and_(db_models.Camera.ip.like(camera_ip), db_models.Camera.user_id.like(user_id))).first()
-            camera_id = camera.id
-            base_dir = f"users/live/{user_id}/{camera_id}"
-            files = os.listdir(base_dir)
-            for file in files:
-                if file.startswith("target_image"):
-                    os.remove(f"{base_dir}/{file}")
+            if camera:
+                camera_id = camera.id
+                base_dir = f"users/live/{user_id}/{camera_id}"
+                files = os.listdir(base_dir)
+                for file in files:
+                    if file.startswith("target_image"):
+                        os.remove(f"{base_dir}/{file}")
+            else:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Camera IP is Invalid")
         except Exception as e:
             print("Error removing already target image")
         try:
@@ -105,10 +109,9 @@ async def upload_target_image(camera_ip: str,target_image: UploadFile = File(tit
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File type is not supported")
 
     
-
 # Define a route to stream a camera's video feed
 @router.websocket("/stream_camera/{ip}")
-async def stream_camera(websocket: WebSocket, ip: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def stream_camera(websocket: WebSocket, ip: str, db: Session = Depends(get_db)):
     try:
         # Fetch the camera details from the database
         camera = db.query(db_models.Camera).filter(db_models.Camera.ip.like(ip)).first()
@@ -134,9 +137,8 @@ async def stream_camera(websocket: WebSocket, ip: str, background_tasks: Backgro
             
             live_camera = LiveCameraReid(base_dir=path)
             
-            await live_camera.send_camera_frames(websocket = websocket ,ip = camera.ip, username = camera.username,password = camera.password)
-            # Start the camera frame streaming in the background task
-            # background_tasks.add_task(sync_wrapper,websocket,camera.ip, camera.username,camera.password)
+            await live_camera.stream_and_process_frames(websocket = websocket ,ip = camera.ip, username = camera.username,password = camera.password)
+            
 
         else:
             print(
@@ -145,10 +147,8 @@ async def stream_camera(websocket: WebSocket, ip: str, background_tasks: Backgro
             raise HTTPException(status_code=404, detail="Camera not found!")
         
     except Exception:
-        raise HTTPException(status_code=404, detail="Camera not opened")   
-    
-    
-    
+        raise HTTPException(status_code=404, detail="Camera not opened") 
+
 # Define a route to list all cameras and their corresponding video stream URLs
 @router.get("/list_cameras",status_code=status.HTTP_200_OK)
 async def list_cameras(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends(OAuth.get_current_user)):
@@ -156,5 +156,4 @@ async def list_cameras(db: Session = Depends(get_db), form_data: OAuth2PasswordR
     user = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
     cameras = db.query(db_models.Camera).filter(db_models.Camera.user_id == user.id).all()     
     return {"cameras": [{"ip": camera.ip, "username": camera.username} for camera in cameras]}
-
 

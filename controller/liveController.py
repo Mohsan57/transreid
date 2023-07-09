@@ -112,7 +112,7 @@ class LiveCameraReid():
 
 
 
-    async def send_camera_frames(self, websocket,ip,username,password):
+    async def stream_and_process_frames(self, websocket,ip,username,password):
                 # Set up the camera stream
                 camera_url = f"http://{username}:{password}@{ip}/video"
                 cap = cv2.VideoCapture(camera_url)
@@ -140,7 +140,7 @@ class LiveCameraReid():
                             raise HTTPException(status_code=404, detail="Camera is stopped!")
                         
                         
-                            # Process the frame (if needed)
+                            # Process the frame 
                         buffer = self.live_reid(frame=frame,width=width,height=height)
                         
                         await websocket.send_bytes(buffer.tobytes())

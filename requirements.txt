@@ -42,6 +42,10 @@ fastapi_mail
 python-dotenv
 mailtrap
 
+#sync camera network
+xmltodict
+httpx
+
 
 # install it if get error
 #ffmpeg 

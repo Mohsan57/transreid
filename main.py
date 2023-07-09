@@ -1,6 +1,6 @@
 from fastapi import FastAPI,HTTPException, BackgroundTasks, Request
 from typing import List
-from routers import user,authentication, video_reid, live_camera, arduino_test
+from routers import user,authentication, video_reid, live_camera, arduino_test, sync_camera_network
 import db_models, database
 from database import engine
 from fastapi.middleware.cors import CORSMiddleware
@@ -137,5 +137,7 @@ app.include_router(authentication.router)
 app.include_router(user.router)
 app.include_router(video_reid.router)
 app.include_router(live_camera.router)
+app.include_router(sync_camera_network.router)
 app.include_router(arduino_test.router)
+
 

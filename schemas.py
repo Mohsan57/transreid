@@ -23,7 +23,18 @@ class show_cameras(BaseModel):
     password: str
     class Config():
         orm_mode = True
-    
+
+class networks(BaseModel):
+    ip: str | None = None
+    username: str | None = None
+    password: str | None = None
+
+class show_networks(BaseModel):
+    ip: str
+    username: str
+    password: str
+    class Config():
+        orm_mode = True
     
 class errors(BaseModel):
     error_code: str

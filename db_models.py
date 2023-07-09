@@ -16,6 +16,7 @@ class User(Base):
     
     reid_video: Mapped[List["Reid_Video"]] = relationship(back_populates = "user")
     camera: Mapped[List['Camera']] = relationship(back_populates="user")
+    network: Mapped[List['Network']] = relationship(back_populates="user")
     
 
 class Reid_Video(Base):
@@ -49,4 +50,15 @@ class Camera(Base):
         
     
     user = relationship("User",back_populates="camera")
+
+class Network(Base):
+    __tablename__ = 'networks'
+    
+    id = Column(Integer,primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    ip = Column(String, unique=True)
+    username = Column(String, nullable=True)
+    password = Column(String, nullable=True)
+    
+    user = relationship("User",back_populates="network")
     

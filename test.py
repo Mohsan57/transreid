@@ -1,8 +1,26 @@
-from transreid.reid import REID
+import cv2
 
-reid = REID(base_dir='users/1/video1',image_extension='png')
-reid.idetification()
+# Set the URL of the video feed from the first camera
+url = "http://mohsan:mohsan123[@192.168.100.10/stream1"
 
-# from make_reid_video import Make_ReID_Video
-# video = Make_ReID_Video(base_dir = "users/1/video1", video_extention="mp4")
-# is_video_make = video.make_video()
+# Open the video capture object
+cap = cv2.VideoCapture(url)
+# Check if the video capture object is successfully opened
+if cap.isOpened():
+    while True:
+        # Read a frame from the video feed
+        ret, frame = cap.read()
+
+        # Display the frame
+        if ret:
+            cv2.imshow('Camera Stream', frame)
+
+        # Break the loop if 'q' is pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    # Release the video capture object and close any open windows
+    cap.release()
+    cv2.destroyAllWindows()
+else:
+    print("Failed to open the video feed from the first camera.")
