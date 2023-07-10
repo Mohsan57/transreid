@@ -4,7 +4,9 @@ from transreid.reid import REID
 import os
 import cv2
 import numpy as np
-import json
+import shutil
+import re
+from file_operations import xywh2xyxy
 
 class SyncNetworkController:
 
@@ -34,17 +36,93 @@ class SyncNetworkController:
             
         if self.is_target_image_set == False:
             print('Target image does not exist')
+        
+
+    def live_reid(self, frame, width, height):
+        if(self.is_target_image_set == False):
+            _, buffer = cv2.imencode(".jpg", frame)
+            return buffer
+        cv2.imwrite(f"{self.base_dir}/frame.jpg", frame)     # save frame as JPEG file 
+        self.object_detection.detect(source=f"{self.base_dir}/frame.jpg")
+        
+        self.reid.idetification()
+        labels_path = f'{self.base_dir}/person/labels'
+        label = f"{labels_path}/frame.txt"
+        info_file = open(f"{self.base_dir}/identified_people/information.txt",'r')
+        detect_people = re.split(r'\s+',str(info_file.read()))
+        detect_people.pop()
+        is_label_exist = False
+        try:
+            label_file = open(label)
+            is_label_exist = True
+        except:
+            is_label_exist = False
+        
+        if(is_label_exist == False):
+            info_file.close()
+            try:
+                shutil.rmtree(f"{self.base_dir}/person")
+            except shutil.Error as e:
+                print("Error in Removing files: "+e)
+             # Encode the frame as JPEG
+            _, buffer = cv2.imencode(".jpg", frame)
+            cv2.destroyAllWindows()
+            return buffer
+        Lines_in_one_label = str(label_file.read()).split("\n")
+        Lines_in_one_label.pop()
+        rec_x = ""
+        rec_y = ""
+        rec_w = ""
+        rec_h = ""
+        if(len(detect_people)>0):
+            detect = 0
+            for people in detect_people:
+                for line in Lines_in_one_label:
+                    file_name, zero, x, y, w, h = re.split(r"\s+",line)
+                    str1 = file_name.split("/")
+                            
+                    if people == str1[-1]:
+                        rec_x = x
+                        rec_y = y
+                        rec_w = w
+                        rec_h = h
+                        detect = 1
+                        
+            if(detect == 1):
+                xywh = [float(rec_x),float(rec_y), float(rec_w), float(rec_h)]
+                
+                xywh = np.array(xywh)
+                xyxy = xywh2xyxy(xywh)
+                
+                box_x1 = (xyxy[0]*width )
+                box_y1 = (xyxy[1]*height)
+                box_x2 = (xyxy[2]*width)
+                box_y2 = (xyxy[3]*height)
+                cv2.rectangle(frame, (int(box_x1), int(box_y1)), (int(box_x2), int(box_y2)), (0, 0, 255), 2)
+                
+                
+        label_file.close()
+        info_file.close()
+        try:
+            shutil.rmtree(f"{self.base_dir}/person")
+        except shutil.Error as e:
+            print("Error in Removing files: "+e)  
+         # Encode the frame as JPEG
+        _, buffer = cv2.imencode(".jpg", frame)
+        cv2.destroyAllWindows()
+        return buffer
 
     async def stream_and_process_frames(self, client, websocket):
         try:
-            
             while(True):
                 for camera_id in self.cameras_list:
                     frame = single_camera_stream(client, camera_id)
                     
                     if frame is not None:
                         # Convert frame to JPEG format
-                        _, buffer = cv2.imencode('.jpg', frame)
+                        
+                        
+                        buffer = self.live_reid(frame=frame,width=720,height=520)
                         
                         jpeg_bytes = buffer.tobytes()
                         # Send the frame and camera ID to all connected WebSocket clients
