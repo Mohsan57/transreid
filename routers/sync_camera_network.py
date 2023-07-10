@@ -136,10 +136,11 @@ async def upload_target_image(network_ip: str,target_image: UploadFile = File(ti
 
 
 # Define a route to stream a camera's video feed
-@router.websocket("/stream-network")
-async def stream_camera(websocket: WebSocket ,ip: str, camera_ids: list[int], db: Session = Depends(get_db)):
+@router.websocket("/stream_network/{ip}/camera/{camera_ids}")
+async def stream_camera(websocket: WebSocket ,ip: str, camera_ids: str, db: Session = Depends(get_db)):
     try:
-        print("stream_camera")
+        camera_id_list = [int(cid) for cid in camera_ids.split(",")]
+        print(camera_id_list)
         # Fetch the camera details from the database
         network = db.query(db_models.Network).filter(db_models.Network.ip.like(ip)).first()
         
@@ -166,11 +167,11 @@ async def stream_camera(websocket: WebSocket ,ip: str, camera_ids: list[int], db
             except Exception:
                 print("path Already exist")
             
-            cam = Client(f'http://{network.ip}', network.username, network.password, timeout=10)
             #stream_all_cameras(cam, camera_ids)
             base_dir = f"users/network/{network.user_id}/{network.id}"
-            live_network = SyncNetworkController(base_dir=base_dir, cameras_list=camera_ids ,ip_address = network.ip)
+            live_network = SyncNetworkController(base_dir=base_dir, cameras_list=camera_id_list ,ip_address = network.ip)
             await live_network.stream_and_process_frames(cam,websocket)
+            
             
 
         else:
@@ -181,6 +182,7 @@ async def stream_camera(websocket: WebSocket ,ip: str, camera_ids: list[int], db
         
     except Exception:
         raise HTTPException(status_code=404, detail="Could Not Connect To DVR") 
+
 
 
 def stream_all_cameras(client, camera_ids):
