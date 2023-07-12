@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Camera Stream</title>
+</head>
+<body>
+  <canvas id="canvas" width="640" height="480"></canvas>
+
+  <script>
+  
+      const canvas = document.getElementById('canvas');
+      const context = canvas.getContext('2d');
+      const socket = new WebSocket('ws://127.0.0.1:8000/live-camera-reid/stream_camera/192.168.100.16:8080'); // Adjust the WebSocket URL accordingly
+
+      socket.binaryType = 'arraybuffer';
+
+      socket.onmessage = function (event) {
+        if (event.data instanceof ArrayBuffer) {
+          const buffer = new Uint8Array(event.data);
+          const blob = new Blob([buffer], { type: 'image/jpeg' });
+
+          const image = new Image();
+          image.onload = function () {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          };
+          image.src = URL.createObjectURL(blob);
+        }
+      };
+      socket.onclose = function () {
+        console.error(socket);
+      alert('Camera stream connection closed');
+    };
+    
+
+    
+  </script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Multiple Camera Streaming</title>
+</head>
+<body style="align-items: center; align-content: center; text-align: center;">
+  <h1 style="color: red;"><u>Campus Surveillance System</u></h1>
+  <h2>Hikvision DVR</h2>
+  <div id="cameraContainer" style=""></div>
+
+  <script>
+    const cameraContainer = document.getElementById('cameraContainer');
+    
+    
+    // add cameras
+    const cameraIds = [901,201]; // Specify the camera IDs you want to stream
+
+
+
+    function createCanvasElement(cameraId) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640; // Adjust the canvas width as per your requirements
+      canvas.height = 480; // Adjust the canvas height as per your requirements
+      canvas.style.margin ="10px";
+      canvas.setAttribute('data-camera-id', cameraId);
+      return canvas;
+    }
+
+    function streamCameras() {
+      const canvasElements = [];
+
+      // Create canvas elements for each camera stream
+      for (let i = 0; i < cameraIds.length; i++) {
+        const cameraId = cameraIds[i];
+        const canvasElement = createCanvasElement(cameraId);
+        cameraContainer.appendChild(canvasElement);
+        canvasElements.push(canvasElement);
+      }
+
+      const ip = '192.168.1.100'; // Specify the IP address
+      const url = `ws://localhost:8000/sync-camera-network/stream_network/${ip}/camera/${cameraIds.join(',')}`;
+
+      const socket = new WebSocket(url); // Adjust the WebSocket URL accordingly
+      socket.binaryType = 'arraybuffer';
+      socket.onopen = function() {
+        console.log("WebSocket connection is open");
+      };
+        var cameraId;
+      socket.onmessage = function(event) {
+        try {
+          if (typeof event.data === "string") {
+            cameraId = event.data;
+            const canvasElement = cameraContainer.querySelector(`canvas[data-camera-id="${cameraId}"]`);
+            if (canvasElement) {
+              context.clearRect(0, 0, canvasElement.width, canvasElement.height);
+              
+            }
+          } else {
+            const buffer = new Uint8Array(event.data);
+            const canvasElement = cameraContainer.querySelector(`canvas[data-camera-id="${cameraId}"]`);
+            if (canvasElement) {
+              const context = canvasElement.getContext('2d');
+              const image = new Image();
+              image.onload = function() {
+                context.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                context.drawImage(image, 0, 0, canvasElement.width, canvasElement.height);
+                
+                
+              };
+              image.src = URL.createObjectURL(new Blob([buffer]));
+            }
+          }
+        } catch (error) {
+          console.error('Error:', error);
+        }
+      };
+
+      socket.onclose = function() {
+        alert('WebSocket connection closed.');
+      };
+    }
+
+    streamCameras();
+  </script>
+</body>
+</html>
