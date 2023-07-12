@@ -83,6 +83,7 @@ async def upload_target_image(camera_ip: str,target_image: UploadFile = File(tit
     image_extension = target_image.filename.split(".")[-1]
     target_image_type = target_image.content_type
     if target_image_type.startswith("image"):
+        base_dir = ""
         try:
             current_user_email = form_data.email
             users = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
