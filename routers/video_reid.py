@@ -175,6 +175,14 @@ async def get_target_image (request: Request,link: str, db:Session = Depends(get
        
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=("Invalid link"))
 
+@router.get("/get-total-reid-videos",status_code=status.HTTP_200_OK)
+async def get_total_reid_videos(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends(OAuth.get_current_user)):
+    current_user_email = form_data.email
+    info = db.query(db_models.Reid_Video).join(db_models.User, db_models.User.id == db_models.Reid_Video.user_id).filter(db_models.User.email == current_user_email).all()
+    if info:
+        return {"total_videos": len(info)}
+    else:
+        return {"total_videos": 0}
 
 @router.get("/history",status_code=status.HTTP_200_OK)
 async def video_history( db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends(OAuth.get_current_user)):

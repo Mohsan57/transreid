@@ -73,6 +73,15 @@ async def remove_camera(ip: str, db: Session = Depends(get_db), form_data: OAuth
     except Exception:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="Wrong IP Address")
 
+@router.get("/get-total-cameras", status_code=status.HTTP_200_OK)
+async def get_total_cameras(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends(OAuth.get_current_user)):
+    try:
+        current_user_email = form_data.email
+        user = db.query(db_models.User).filter(db_models.User.email == current_user_email).first()
+        cameras = db.query(db_models.Camera).filter(db_models.Camera.user_id == user.id).all()
+        return {"total_cameras": len(cameras)}
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE,detail="Something went wrong")
 
 
 # upload target image for REID
