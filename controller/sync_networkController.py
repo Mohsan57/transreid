@@ -1,4 +1,4 @@
-from fastapi import WebSocketDisconnect
+from fastapi import WebSocketDisconnect, HTTPException, status
 from object_detection.detect import ObjectDetection
 from transreid.reid import REID
 import os
@@ -106,8 +106,15 @@ class SyncNetworkController:
                 box_y2 = (xyxy[3]*height)
                 cv2.rectangle(frame, (int(box_x1), int(box_y1)), (int(box_x2), int(box_y2)), (0, 0, 255), 2)
                 cv2.putText(frame, f'Accuracy: {round(float(accuracy[0])*100,2)}%', (int(box_x1), int(box_y1)-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36,255,12), 2)
-                
-                
+                # if(float(accuracy[0]) >= 0.90):
+                #     files = os.listdir(self.base_dir)
+                #     for file in files:
+                #         if file.startswith("target_image"):
+                #             os.remove(f"{self.base_dir}/{file}")
+                #     #crop image
+                    
+                #     cv2.imwrite(f"{self.base_dir}/target_image.jpg", frame)    
+                    
         label_file.close()
         info_file.close()
         try:

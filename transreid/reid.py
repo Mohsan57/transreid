@@ -7,6 +7,7 @@ import torch.nn as nn
 import glob
 import setting
 import re
+import cv2
 transform = T.Compose([
     T.Resize((256, 128)),
     T.ToTensor(),
@@ -31,6 +32,13 @@ class REID:
     self.model = nn.DataParallel(self.model)
     self.model.to(self.device)
     self.model.eval()
+
+    target = f"{self.base_dir}/target_image.{self.image_extension }"
+    target_image = Image.open(f"{target}").convert('RGB')
+        
+    target_image_to_tensor = transform(target_image).unsqueeze(0)
+        
+    self.target_tensor = self.model(target_image_to_tensor, cam_label=6, view_label=1)
      
   
   def reload_model(self):
@@ -57,13 +65,13 @@ class REID:
         images = sorted(images, key=self.extract_number)
         target = f"{self.base_dir}/target_image.{self.image_extension }"
         
-        target_image = Image.open(target).convert('RGB')
+        # target_image = Image.open(target).convert('RGB')
         
-        target_image_to_tensor = transform(target_image).unsqueeze(0)
-        if self.model is None:
-          self.reload_model()
+        # target_image_to_tensor = transform(target_image).unsqueeze(0)
+        # if self.model is None:
+        #   self.reload_model()
 
-        target_tensor = self.model(target_image_to_tensor, cam_label=6, view_label=1)
+        # target_tensor = self.model(target_image_to_tensor, cam_label=6, view_label=1)
         try:
           os.mkdir(f"{self.base_dir}/identified_people/")
         except:
@@ -76,7 +84,7 @@ class REID:
               open_image = Image.open(image).convert('RGB')
               image_tensor = transform(open_image).unsqueeze(0)
               image_tensor = self.model(image_tensor,  cam_label=6, view_label=1)
-              similarity = torch.nn.functional.cosine_similarity(target_tensor, image_tensor)
+              similarity = torch.nn.functional.cosine_similarity(self.target_tensor, image_tensor)
               if(similarity[0]>=setting.TRANSREID_ACCURACY_MATCH):
                 print( f" image index {image} cosine is: {str(similarity[0])}")
                 value = round(similarity.item(),2)
@@ -85,6 +93,15 @@ class REID:
                   
                 # str2 = image.split("/")
                 writefile.write(f"{file_name},{value}\n")
+                if(float(value) >= 0.95):
+                    files = os.listdir(self.base_dir)
+                    for file in files:
+                        if file.startswith("target_image"):
+                            os.remove(f"{self.base_dir}/{file}")
+                    #crop image
+                    open_image.save(f"{self.base_dir}/target_image.jpg")
+                    # cv2.imwrite(f"{self.base_dir}/target_image.jpg", open_image) 
+
           writefile.close()
         except Exception as e:
           print("error in writing file")
