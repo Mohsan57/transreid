@@ -41,7 +41,7 @@ class Make_ReID_Video:
                 if( i < content_len):
                     line = content[i]
                     if(line != "break"):
-                        x,y,w,h = re.findall(r'\d\.\d+', line)
+                        x,y,w,h,acc = re.findall(r'\d\.\d+', line)
                         xywh = [float(x),float(y), float(w), float(h)]
                         xywh = np.array(xywh)
                         xyxy = xywh2xyxy(xywh)
@@ -49,8 +49,8 @@ class Make_ReID_Video:
                         box_y1 = (xyxy[1]*self.height)
                         box_x2 = (xyxy[2]*self.width)
                         box_y2 = (xyxy[3]*self.height)
-                    
                         cv2.rectangle(frame, (int(box_x1), int(box_y1)), (int(box_x2), int(box_y2)), (0, 0, 255), 2) # type: ignore
+                        cv2.putText(frame, f'Accuracy: {round(float(acc)*100,2)}%', (int(box_x1), int(box_y1)-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36,255,12), 2)
                 self.out.write(frame)
                 i+=1
                 # pause between frames
@@ -91,11 +91,42 @@ class Make_ReID_Video:
             for n in label_files_number_sort:
                 labels.append(f"{self.base_dir}/person/labels/video_{n}.txt")
             
-            info_file = open(self.Detect_people_file_names,'r')
+            # info_file = open(self.Detect_people_file_names,'r')
 
-            detect_people = re.split(r'\s+',str(info_file.read()))
-            detect_people.pop()
-            detect_people = sorted(detect_people, key=lambda x: int(x[5:-4]))
+            # detect_people_with_value = re.split(r'\s+',str(info_file.read()))
+            # detect_people_with_value.pop()
+
+            # detect_people = []
+            # value = []
+            # for name in detect_people_with_value:
+            #     n,v = name.split(",")
+            #     detect_people.append(n)
+            #     value.append(v)
+            info_file = open(self.Detect_people_file_names, 'r')
+
+            detect_people_with_value = re.split(r'\s+', str(info_file.read()))
+            detect_people_with_value.pop()
+
+            detect_people = []
+            for name in detect_people_with_value:
+                n, v = name.split(",")
+                detect_people.append({'detect_people': n, 'accuracy': v})
+
+            info_file.close()
+
+            
+            sorted_detect_people = sorted(detect_people, key=lambda x: x['detect_people'])
+
+
+            # Define a regular expression pattern to extract the numbers from the filenames
+            # pattern = r'\d+'
+
+            # Sort the filenames based on the extracted numbers
+            # detect_people = sorted(detect_people, key=lambda x: int(re.findall(pattern, x)[0]) if re.findall(pattern, x) else float('inf'))
+            # if 'video.jpg' in detect_people:
+            #     detect_people.pop()
+            #     detect_people.insert(0,'video.jpg')
+            # detect_people = sorted(detect_people, key=lambda x: int(x[5:-4]))
             
             file = open(self.store_frame_info_name,"w")
             
@@ -104,18 +135,19 @@ class Make_ReID_Video:
                 label_file = open(label)
                 Lines_in_one_label = str(label_file.read()).split("\n") 
                 Lines_in_one_label.pop()
-                detect_people = sorted(detect_people, key=lambda x: int(x[5:-4]))
                 
-                for people in detect_people:
+                i = 0
+                for people in sorted_detect_people:
                     for line in Lines_in_one_label:
                         file_name, zero, x, y, w, h = re.split(r"\s+",line)
                         str1 = file_name.split("/")
                         
-                        if people == str1[-1]:
-                            file.write(f"{x},{y},{w},{h}\n")
+                        if people['detect_people'] == str1[-1]:
+                            file.write(f"{x},{y},{w},{h},{people['accuracy']}\n")
                             detect = 1
                     if detect == 1:
                         break
+                    i+=1
                 if(detect == 0):
                     file.write("break\n")
             file.close()

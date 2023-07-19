@@ -6,6 +6,7 @@ from PIL import Image
 import torch.nn as nn
 import glob
 import setting
+import re
 transform = T.Compose([
     T.Resize((256, 128)),
     T.ToTensor(),
@@ -78,10 +79,12 @@ class REID:
               similarity = torch.nn.functional.cosine_similarity(target_tensor, image_tensor)
               if(similarity[0]>=setting.TRANSREID_ACCURACY_MATCH):
                 print( f" image index {image} cosine is: {str(similarity[0])}")
+                value = round(similarity.item(),2)
+                
                 file_name = os.path.basename(image)
                   
                 # str2 = image.split("/")
-                writefile.write(f"{file_name}\n")
+                writefile.write(f"{file_name},{value}\n")
           writefile.close()
         except Exception as e:
           print("error in writing file")

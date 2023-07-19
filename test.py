@@ -1,26 +1,16 @@
-import cv2
+from transreid.reid import REID
+from make_reid_video import Make_ReID_Video
+import re
+# reid = REID("users/1/video9","png")
+# reid.idetification()
 
-# Set the URL of the video feed from the first camera
-url = "http://mohsan:mohsan123[@192.168.100.10/stream1"
+video = Make_ReID_Video("users/1/video9","mp4")
+video.make_video()  
 
-# Open the video capture object
-cap = cv2.VideoCapture(url)
-# Check if the video capture object is successfully opened
-if cap.isOpened():
-    while True:
-        # Read a frame from the video feed
-        ret, frame = cap.read()
-
-        # Display the frame
-        if ret:
-            cv2.imshow('Camera Stream', frame)
-
-        # Break the loop if 'q' is pressed
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    # Release the video capture object and close any open windows
-    cap.release()
-    cv2.destroyAllWindows()
-else:
-    print("Failed to open the video feed from the first camera.")
+# detect_people = ['video.jpg','video5.jpg','video9000.jpg']
+# pattern = r'\d+'
+# detect_people = sorted(detect_people, key=lambda x: int(re.findall(pattern, x)[0]) if re.findall(pattern, x) else float('inf'))
+# if 'video.jpg' in detect_people:
+#     detect_people.pop()
+#     detect_people.insert(0,'video.jpg')
+# print(detect_people)

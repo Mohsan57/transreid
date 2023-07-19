@@ -49,8 +49,8 @@ class SyncNetworkController:
         labels_path = f'{self.base_dir}/person/labels'
         label = f"{labels_path}/frame.txt"
         info_file = open(f"{self.base_dir}/identified_people/information.txt",'r')
-        detect_people = re.split(r'\s+',str(info_file.read()))
-        detect_people.pop()
+        detect_people_with_acc = re.split(r'\s+',str(info_file.read()))
+        detect_people_with_acc.pop()
         is_label_exist = False
         try:
             label_file = open(label)
@@ -74,8 +74,14 @@ class SyncNetworkController:
         rec_y = ""
         rec_w = ""
         rec_h = ""
-        if(len(detect_people)>0):
+        if(len(detect_people_with_acc)>0):
             detect = 0
+            detect_people = []
+            accuracy = []
+            for data in detect_people_with_acc:
+                n,a = data.split(",")
+                detect_people.append(n)
+                accuracy.append(a)
             for people in detect_people:
                 for line in Lines_in_one_label:
                     file_name, zero, x, y, w, h = re.split(r"\s+",line)
@@ -99,6 +105,7 @@ class SyncNetworkController:
                 box_x2 = (xyxy[2]*width)
                 box_y2 = (xyxy[3]*height)
                 cv2.rectangle(frame, (int(box_x1), int(box_y1)), (int(box_x2), int(box_y2)), (0, 0, 255), 2)
+                cv2.putText(frame, f'Accuracy: {round(float(accuracy[0])*100,2)}%', (int(box_x1), int(box_y1)-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36,255,12), 2)
                 
                 
         label_file.close()
