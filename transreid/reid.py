@@ -49,6 +49,14 @@ class REID:
     self.model = nn.DataParallel(self.model)
     self.model.to(self.device)
     self.model.eval()
+
+  def update_target(self):
+    target = f"{self.base_dir}/target_image.jpg"
+    target_image = Image.open(f"{target}").convert('RGB')
+        
+    target_image_to_tensor = transform(target_image).unsqueeze(0)
+        
+    self.target_tensor = self.model(target_image_to_tensor, cam_label=6, view_label=1)
     
   def extract_number(self,filename):
       try:
@@ -90,16 +98,17 @@ class REID:
                 value = round(similarity.item(),2)
                 
                 file_name = os.path.basename(image)
-                  
+                
                 # str2 = image.split("/")
                 writefile.write(f"{file_name},{value}\n")
-                if(float(value) >= 0.95):
-                    files = os.listdir(self.base_dir)
-                    for file in files:
-                        if file.startswith("target_image"):
-                            os.remove(f"{self.base_dir}/{file}")
-                    #crop image
-                    open_image.save(f"{self.base_dir}/target_image.jpg")
+                # if(float(value) >= 0.92):
+                #     files = os.listdir(self.base_dir)
+                #     for file in files:
+                #         if file.startswith("target_image"):
+                #             os.remove(f"{self.base_dir}/{file}")
+                #     #crop image
+                #     open_image.save(f"{self.base_dir}/target_image.jpg")
+                #     self.update_target()
                     # cv2.imwrite(f"{self.base_dir}/target_image.jpg", open_image) 
 
           writefile.close()

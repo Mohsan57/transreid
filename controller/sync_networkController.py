@@ -136,7 +136,7 @@ class SyncNetworkController:
                         # Convert frame to JPEG format
                         
                         
-                        buffer = self.live_reid(frame=frame,width=720,height=520)
+                        buffer = self.live_reid(frame=frame,width=700,height=520)
                         
                         jpeg_bytes = buffer.tobytes()
                         # Send the frame and camera ID to all connected WebSocket clients
