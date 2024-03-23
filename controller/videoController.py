@@ -2,7 +2,7 @@ from fastapi import status, HTTPException
 import shutil
 from video_preprocessing import video_preprocessing
 from object_detection.detect import ObjectDetection
-from transreid.reid import REID
+from trans_reid.reid import REID
 from make_reid_video import Make_ReID_Video
 from file_operations import get_random_str, handler
 import torch

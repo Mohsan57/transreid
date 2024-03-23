@@ -1,5 +1,5 @@
 from object_detection.detect import ObjectDetection
-from transreid.reid import REID
+from trans_reid.reid import REID
 import os
 import cv2
 from file_operations import xywh2xyxy
