@@ -1,7 +1,7 @@
 
-BASE_URL = "http://34.133.165.142"
-EMAIL = "campus.surveillance.system@gmail.com"
-PASSWORD  = "bfomqqctqfobtgta"
+BASE_URL = "***"
+EMAIL = "***@gmail.com"
+PASSWORD  = "****"
 QUEUE_LENGTH = 3
 INPUT_VIDEO_SIZE_IN_BYTES = 150000000
 VIDEO_CONVERT_FPS  = 7
@@ -14,7 +14,6 @@ TRANSREID_ACCURACY_MATCH = 0.71
 ORIGINS = [
        "http://localhost",
        "http://localhost:3000",
-       "http://192.168.18.116",
        "https://gregarious-pothos-f687f0.netlify.app",]
 
 
